@@ -73,6 +73,79 @@ describe("config", () => {
     });
   });
 
+  describe("CORS allowed origins", () => {
+    it("should return null for undefined", () => {
+      const config = parseConfig({});
+      expect(config.corsAllowedOrigins).toBeNull();
+    });
+
+    it("should return null for wildcard", () => {
+      const config = parseConfig({ corsAllowedOrigins: "*" });
+      expect(config.corsAllowedOrigins).toBeNull();
+    });
+
+    it("should parse single origin", () => {
+      const config = parseConfig({ corsAllowedOrigins: "https://example.com" });
+      expect(config.corsAllowedOrigins).toEqual(["https://example.com"]);
+    });
+
+    it("should parse comma-separated origins", () => {
+      const config = parseConfig({
+        corsAllowedOrigins: "https://example.com,https://admin.example.com",
+      });
+      expect(config.corsAllowedOrigins).toEqual([
+        "https://example.com",
+        "https://admin.example.com",
+      ]);
+    });
+
+    it("should trim whitespace from origins", () => {
+      const config = parseConfig({
+        corsAllowedOrigins: " https://example.com , https://admin.example.com ",
+      });
+      expect(config.corsAllowedOrigins).toEqual([
+        "https://example.com",
+        "https://admin.example.com",
+      ]);
+    });
+
+    it("should filter empty strings", () => {
+      const config = parseConfig({
+        corsAllowedOrigins: "https://example.com,,https://admin.example.com,",
+      });
+      expect(config.corsAllowedOrigins).toEqual([
+        "https://example.com",
+        "https://admin.example.com",
+      ]);
+    });
+
+    it("should load from CORS_ALLOWED_ORIGINS env var", () => {
+      process.env.CORS_ALLOWED_ORIGINS = "https://myapp.com";
+      const config = loadConfig();
+      expect(config.corsAllowedOrigins).toEqual(["https://myapp.com"]);
+    });
+  });
+
+  describe("environment helpers", () => {
+    it("should set isDevelopment true in development", () => {
+      const config = parseConfig({ nodeEnv: "development" });
+      expect(config.isDevelopment).toBe(true);
+      expect(config.isProduction).toBe(false);
+    });
+
+    it("should set isProduction true in production", () => {
+      const config = parseConfig({ nodeEnv: "production" });
+      expect(config.isDevelopment).toBe(false);
+      expect(config.isProduction).toBe(true);
+    });
+
+    it("should set both false in test", () => {
+      const config = parseConfig({ nodeEnv: "test" });
+      expect(config.isDevelopment).toBe(false);
+      expect(config.isProduction).toBe(false);
+    });
+  });
+
   describe("channel routes", () => {
     it("should parse empty channel routes", () => {
       const config = parseConfig({ channelRoutes: "[]" });
@@ -186,7 +259,7 @@ describe("config", () => {
       expect(warnings).toContain("ADMIN_API_KEY is required in production");
     });
 
-    it("should warn about wildcard CORS in production", () => {
+    it("should warn about missing CORS origins in production", () => {
       const config = parseConfig({
         nodeEnv: "production",
         adminApiKey: "supersecretadminkey123",
@@ -194,7 +267,7 @@ describe("config", () => {
 
       const warnings = validateProductionConfig(config);
       expect(warnings).toContain(
-        "CORS_ORIGINS should be restricted in production"
+        "CORS_ALLOWED_ORIGINS should be set in production"
       );
     });
 
@@ -203,7 +276,7 @@ describe("config", () => {
         nodeEnv: "production",
         adminApiKey: "supersecretadminkey123",
         jwtSecret: "a-very-long-jwt-secret-at-least-32-chars",
-        corsOrigins: "https://example.com",
+        corsAllowedOrigins: "https://example.com",
       });
 
       const warnings = validateProductionConfig(config);
@@ -259,7 +332,7 @@ describe("config", () => {
       process.env.DATABASE_URL = "/var/data/agentgate.db";
       process.env.ADMIN_API_KEY = "production-admin-key-1234";
       process.env.JWT_SECRET = "production-jwt-secret-must-be-32-chars!";
-      process.env.CORS_ORIGINS = "https://app.example.com";
+      process.env.CORS_ALLOWED_ORIGINS = "https://app.example.com,https://admin.example.com";
       process.env.RATE_LIMIT_RPM = "100";
       process.env.WEBHOOK_TIMEOUT_MS = "10000";
       process.env.SLACK_BOT_TOKEN = "xoxb-prod-token";

@@ -24,6 +24,7 @@ function htmlResponse(
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="referrer" content="no-referrer" />
         <title>${title} - AgentGate</title>
         <style>
           * {
@@ -122,6 +123,9 @@ function htmlResponse(
 
 // GET /api/decide/:token - One-click decision endpoint
 decideRouter.get("/:token", async (c) => {
+  // Prevent token leakage via Referer header
+  c.header("Referrer-Policy", "no-referrer");
+
   const { token } = c.req.param();
   const now = new Date();
 

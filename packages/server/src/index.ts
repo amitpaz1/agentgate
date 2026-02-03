@@ -10,13 +10,34 @@ import auditRouter from "./routes/audit.js";
 import tokensRouter from "./routes/tokens.js";
 import decideRouter from "./routes/decide.js";
 import { authMiddleware, type AuthVariables } from "./middleware/auth.js";
+import { getConfig } from "./config.js";
+import { securityHeadersMiddleware } from "./middleware/security-headers.js";
 
 // Create Hono app with typed variables
 const app = new Hono<{ Variables: AuthVariables }>();
 
+// Load config
+const config = getConfig();
+
 // Middleware
 app.use("*", logger());
-app.use("*", cors());
+
+// CORS configuration:
+// - If corsAllowedOrigins is set, use those specific origins
+// - In development (no origins set), allow all origins
+// - In production (no origins set), deny cross-origin requests (same-origin only)
+app.use(
+  "*",
+  cors({
+    origin: config.corsAllowedOrigins
+      ? config.corsAllowedOrigins
+      : config.isDevelopment
+        ? "*"
+        : (origin) => (origin ? null : origin), // Reject all cross-origin in production
+    credentials: true,
+  })
+);
+app.use("*", securityHeadersMiddleware);
 
 // Health check endpoint (public, no auth required)
 app.get("/health", (c) => {
@@ -42,11 +63,16 @@ app.route("/api/audit", auditRouter);
 
 // Global error handler
 app.onError((err, c) => {
-  console.error(`Error: ${err.message}`);
+  // Always log full error server-side
+  console.error(`Error: ${err.message}`, err.stack);
+
+  // Only expose error details in development
+  const isDev = process.env.NODE_ENV !== "production";
+
   return c.json(
     {
       error: "Internal Server Error",
-      message: err.message,
+      ...(isDev && { message: err.message }),
     },
     500
   );

@@ -262,7 +262,7 @@ describe("config edge cases", () => {
         nodeEnv: "production",
         adminApiKey: "supersecretadminkey123",
         jwtSecret: "very-long-jwt-secret-that-is-32-chars!!",
-        corsOrigins: "https://myapp.com,https://admin.myapp.com",
+        corsAllowedOrigins: "https://myapp.com,https://admin.myapp.com",
       });
       const warnings = validateProductionConfig(config);
       expect(warnings).toHaveLength(0);

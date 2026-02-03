@@ -7,6 +7,7 @@ import { requireScope } from '../middleware/auth.js';
 import { eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
+import { validateWebhookUrl } from '../lib/url-validator.js';
 
 const router = new Hono();
 
@@ -22,6 +23,13 @@ const createWebhookSchema = z.object({
 
 router.post('/', zValidator('json', createWebhookSchema), async (c) => {
   const { url, events, secret } = c.req.valid('json');
+  
+  // SSRF protection: validate URL before accepting
+  const validation = await validateWebhookUrl(url);
+  if (!validation.valid) {
+    return c.json({ error: `Invalid webhook URL: ${validation.error}` }, 400);
+  }
+  
   const id = nanoid();
   const webhookSecret = secret || crypto.randomBytes(32).toString('hex');
   
@@ -106,6 +114,14 @@ router.patch('/:id', zValidator('json', updateWebhookSchema), async (c) => {
   const id = c.req.param('id');
   const updates = c.req.valid('json');
   
+  // SSRF protection: validate URL if being updated
+  if (updates.url) {
+    const validation = await validateWebhookUrl(updates.url);
+    if (!validation.valid) {
+      return c.json({ error: `Invalid webhook URL: ${validation.error}` }, 400);
+    }
+  }
+  
   const updateData: Record<string, unknown> = {};
   if (updates.url) updateData.url = updates.url;
   if (updates.events) updateData.events = JSON.stringify(updates.events);
@@ -131,6 +147,12 @@ router.post('/:id/test', async (c) => {
   const webhookRecord = webhook[0];
   if (!webhookRecord) {
     return c.json({ error: 'Webhook not found' }, 404);
+  }
+  
+  // SSRF protection: re-validate URL (DNS rebinding defense)
+  const validation = await validateWebhookUrl(webhookRecord.url);
+  if (!validation.valid) {
+    return c.json({ error: `Webhook URL no longer valid: ${validation.error}` }, 400);
   }
   
   const testPayload = {

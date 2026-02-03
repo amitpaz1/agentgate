@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { webhooks, webhookDeliveries } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { validateWebhookUrl } from './url-validator.js';
 
 // Sign payload with HMAC-SHA256
 export function signPayload(payload: string, secret: string): string {
@@ -46,6 +47,20 @@ async function deliverToWebhook(webhook: typeof webhooks.$inferSelect, event: st
 
 async function attemptDelivery(deliveryId: string, url: string, payload: string, signature: string, attempt = 1) {
   const maxAttempts = 3;
+  
+  // SSRF protection: Re-validate URL before each delivery attempt (DNS rebinding defense)
+  const validation = await validateWebhookUrl(url);
+  if (!validation.valid) {
+    await db.update(webhookDeliveries)
+      .set({
+        status: 'failed',
+        attempts: attempt,
+        lastAttemptAt: Date.now(),
+        responseBody: `SSRF protection: ${validation.error}`,
+      })
+      .where(eq(webhookDeliveries.id, deliveryId));
+    return; // Do not retry - this is a security block, not a transient error
+  }
   
   try {
     const response = await fetch(url, {

@@ -63,8 +63,14 @@ export const ConfigSchema = z.object({
   adminApiKey: z.string().min(16).optional(),
   /** JWT secret for session tokens */
   jwtSecret: z.string().min(32).optional(),
-  /** CORS allowed origins (comma-separated) */
-  corsOrigins: z.string().default("*"),
+  /** CORS allowed origins (comma-separated). Empty or "*" = allow all in dev, deny in prod */
+  corsAllowedOrigins: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val || val === "*") return null; // null means use default behavior
+      return val.split(",").map((origin) => origin.trim()).filter(Boolean);
+    }),
 
   // Rate Limiting
   /** Requests per minute per API key */
@@ -132,7 +138,13 @@ export const ConfigSchema = z.object({
   // Logging
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
   logFormat: z.enum(["json", "pretty"]).default("pretty"),
-});
+}).transform((config) => ({
+  ...config,
+  /** Convenience: true if nodeEnv === 'development' */
+  isDevelopment: config.nodeEnv === "development",
+  /** Convenience: true if nodeEnv === 'production' */
+  isProduction: config.nodeEnv === "production",
+}));
 
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -151,7 +163,7 @@ const ENV_MAP: Record<string, keyof z.infer<typeof ConfigSchema>> = {
   DATABASE_URL: "databaseUrl",
   ADMIN_API_KEY: "adminApiKey",
   JWT_SECRET: "jwtSecret",
-  CORS_ORIGINS: "corsOrigins",
+  CORS_ALLOWED_ORIGINS: "corsAllowedOrigins",
   RATE_LIMIT_RPM: "rateLimitRpm",
   RATE_LIMIT_ENABLED: "rateLimitEnabled",
   RATE_LIMIT_BACKEND: "rateLimitBackend",
@@ -247,8 +259,8 @@ export function validateProductionConfig(config: Config): string[] {
     if (!config.jwtSecret) {
       warnings.push("JWT_SECRET is recommended in production");
     }
-    if (config.corsOrigins === "*") {
-      warnings.push("CORS_ORIGINS should be restricted in production");
+    if (!config.corsAllowedOrigins) {
+      warnings.push("CORS_ALLOWED_ORIGINS should be set in production");
     }
   }
 
