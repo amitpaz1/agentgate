@@ -2,4 +2,25 @@
 
 export const VERSION = '0.0.1';
 
-// SDK client will be added in Task 5
+// Client
+export { AgentGateClient } from './client.js';
+export type {
+  ClientOptions,
+  RequestOptions,
+  WaitOptions,
+  ListOptions,
+} from './client.js';
+
+// Errors
+export { AgentGateError, TimeoutError } from './errors.js';
+
+// Re-export types from core for convenience
+export type {
+  ApprovalStatus,
+  ApprovalUrgency,
+  ApprovalRequest,
+  DecisionType,
+  PolicyRule,
+  Policy,
+  PolicyDecision,
+} from '@agentgate/core';
