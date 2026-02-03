@@ -1,0 +1,18 @@
+{
+  "name": "@agentgate/dashboard",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && echo 'Dashboard build placeholder'",
+    "dev": "echo 'Dashboard dev placeholder'",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@agentgate/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}
