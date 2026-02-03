@@ -19,22 +19,27 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "bootstrap": "tsx src/bootstrap.ts"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "dependencies": {
     "@agentgate/core": "workspace:*",
     "@hono/node-server": "^1.13.0",
-    "hono": "^4.6.0",
-    "drizzle-orm": "^0.38.0",
+    "@hono/zod-validator": "^0.7.6",
     "better-sqlite3": "^11.6.0",
     "dotenv": "^16.4.0",
-    "nanoid": "^5.0.0"
+    "drizzle-orm": "^0.38.0",
+    "hono": "^4.6.0",
+    "nanoid": "^5.0.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "tsx": "^4.19.2",
-    "vitest": "^2.1.8",
+    "@types/better-sqlite3": "^7.6.0",
     "drizzle-kit": "^0.30.0",
-    "@types/better-sqlite3": "^7.6.0"
+    "tsx": "^4.19.2",
+    "vitest": "^2.1.8"
   }
 }

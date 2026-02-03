@@ -8,6 +8,20 @@
       "when": 1770094484278,
       "tag": "0000_mute_carlie_cooper",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1770098470699,
+      "tag": "0001_violet_captain_universe",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1770098611230,
+      "tag": "0002_round_karma",
+      "breakpoints": true
     }
   ]
 }

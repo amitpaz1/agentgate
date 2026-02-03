@@ -7,6 +7,7 @@ import { db, approvalRequests, auditLogs, policies } from "../db/index.js";
 import { evaluatePolicy } from "@agentgate/core";
 import type { ApprovalRequest, Policy as CorePolicy, PolicyRule } from "@agentgate/core";
 import { logAuditEvent } from "../lib/audit.js";
+import { deliverWebhook } from "../lib/webhook.js";
 
 const requestsRouter = new Hono();
 
@@ -210,10 +211,40 @@ requestsRouter.post("/", async (c) => {
       reason: decisionReason,
       automatic: true,
     });
+    // Deliver webhook for auto-approval
+    await deliverWebhook("request.approved", {
+      request: {
+        id,
+        action,
+        params,
+        context,
+        status,
+        urgency,
+        createdAt: now.toISOString(),
+        decidedAt: decidedAt?.toISOString() || null,
+        decidedBy,
+        decisionReason,
+      },
+    });
   } else if (status === "denied") {
     await logAuditEvent(id, "denied", "policy", {
       reason: decisionReason,
       automatic: true,
+    });
+    // Deliver webhook for auto-denial
+    await deliverWebhook("request.denied", {
+      request: {
+        id,
+        action,
+        params,
+        context,
+        status,
+        urgency,
+        createdAt: now.toISOString(),
+        decidedAt: decidedAt?.toISOString() || null,
+        decidedBy,
+        decisionReason,
+      },
     });
   }
 
@@ -364,7 +395,12 @@ requestsRouter.post("/:id/decide", async (c) => {
     .where(eq(approvalRequests.id, id))
     .limit(1);
 
-  return c.json(formatRequest(updated[0]!));
+  const updatedRequest = formatRequest(updated[0]!);
+
+  // Deliver webhook for manual decision
+  await deliverWebhook(`request.${decision}`, { request: updatedRequest });
+
+  return c.json(updatedRequest);
 });
 
 // GET /api/requests/:id/audit - Get audit trail

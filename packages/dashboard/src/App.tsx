@@ -2,6 +2,8 @@ import { Routes, Route, Link } from 'react-router-dom';
 import Home from './pages/Home';
 import RequestList from './pages/RequestList';
 import RequestDetail from './pages/RequestDetail';
+import ApiKeys from './pages/ApiKeys';
+import Webhooks from './pages/Webhooks';
 
 function App() {
   return (
@@ -29,6 +31,18 @@ function App() {
               >
                 Requests
               </Link>
+              <Link
+                to="/settings/api-keys"
+                className="text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                API Keys
+              </Link>
+              <Link
+                to="/settings/webhooks"
+                className="text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Webhooks
+              </Link>
             </nav>
           </div>
         </div>
@@ -40,6 +54,8 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/requests" element={<RequestList />} />
           <Route path="/requests/:id" element={<RequestDetail />} />
+          <Route path="/settings/api-keys" element={<ApiKeys />} />
+          <Route path="/settings/webhooks" element={<Webhooks />} />
         </Routes>
       </main>
     </div>

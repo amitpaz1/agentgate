@@ -4,15 +4,18 @@ import { logger } from "hono/logger";
 import { serve } from "@hono/node-server";
 import requestsRouter from "./routes/requests.js";
 import policiesRouter from "./routes/policies.js";
+import apiKeysRouter from "./routes/api-keys.js";
+import webhooksRouter from "./routes/webhooks.js";
+import { authMiddleware, type AuthVariables } from "./middleware/auth.js";
 
-// Create Hono app
-const app = new Hono();
+// Create Hono app with typed variables
+const app = new Hono<{ Variables: AuthVariables }>();
 
 // Middleware
 app.use("*", logger());
 app.use("*", cors());
 
-// Health check endpoint
+// Health check endpoint (public, no auth required)
 app.get("/health", (c) => {
   return c.json({
     status: "ok",
@@ -20,9 +23,14 @@ app.get("/health", (c) => {
   });
 });
 
+// Apply auth middleware to all /api/* routes
+app.use("/api/*", authMiddleware);
+
 // Mount API routes
 app.route("/api/requests", requestsRouter);
 app.route("/api/policies", policiesRouter);
+app.route("/api/api-keys", apiKeysRouter);
+app.route("/api/webhooks", webhooksRouter);
 
 // Global error handler
 app.onError((err, c) => {

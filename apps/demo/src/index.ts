@@ -21,11 +21,13 @@ import { AgentGateClient, TimeoutError } from "@agentgate/sdk";
 
 // Configuration
 const SERVER_URL = process.env.AGENTGATE_URL || "http://localhost:3000";
+const API_KEY = process.env.AGENTGATE_API_KEY || "";
 const DEMO_APPROVER = "demo-script";
 
 // Create SDK client
 const client = new AgentGateClient({
   baseUrl: SERVER_URL,
+  apiKey: API_KEY,
 });
 
 // Helper to log with timestamps
@@ -43,11 +45,16 @@ async function simulateApproval(
   decision: "approved" | "denied",
   reason?: string
 ) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (API_KEY) {
+    headers["Authorization"] = `Bearer ${API_KEY}`;
+  }
+  
   const response = await fetch(
     `${SERVER_URL}/api/requests/${requestId}/decide`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         decision,
         decidedBy: DEMO_APPROVER,
