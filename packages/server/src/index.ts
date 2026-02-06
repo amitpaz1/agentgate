@@ -13,9 +13,10 @@ import decideRouter from "./routes/decide.js";
 import { authMiddleware, type AuthVariables } from "./middleware/auth.js";
 import { getConfig, validateProductionConfig } from "./config.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
-import { initDatabase, runMigrations, closeDatabase } from "./db/index.js";
+import { initDatabase, runMigrations, closeDatabase, getDb, approvalRequests } from "./db/index.js";
 import { resetRateLimiter } from "./lib/rate-limiter/index.js";
 import { initLogger, getLogger } from "./lib/logger.js";
+import { sql } from "drizzle-orm";
 
 // Create Hono app with typed variables
 const app = new Hono<{ Variables: AuthVariables }>();
@@ -62,11 +63,33 @@ app.use("*", securityHeadersMiddleware);
 app.use("/api/*", bodyLimit({ maxSize: 1024 * 1024 }));
 
 // Health check endpoint (public, no auth required)
-app.get("/health", (c) => {
-  return c.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-  });
+// GET /health        → shallow check (fast, backward compatible)
+// GET /health?deep=true → deep check (verifies DB connectivity)
+app.get("/health", async (c) => {
+  const deep = c.req.query("deep") === "true";
+
+  if (!deep) {
+    return c.json({ status: "ok", timestamp: new Date().toISOString() });
+  }
+
+  const checks: Record<string, { status: string; latencyMs?: number; error?: string }> = {};
+  let overallHealthy = true;
+
+  // Check database
+  try {
+    const start = Date.now();
+    const db = getDb();
+    await db.select({ one: sql<number>`1` }).from(approvalRequests).limit(1);
+    checks.database = { status: "healthy", latencyMs: Date.now() - start };
+  } catch (err) {
+    checks.database = { status: "unhealthy", error: String(err) };
+    overallHealthy = false;
+  }
+
+  const status = overallHealthy ? "ok" : "degraded";
+  const httpStatus = overallHealthy ? 200 : 503;
+
+  return c.json({ status, timestamp: new Date().toISOString(), checks }, httpStatus);
 });
 
 // Decision endpoint (public, no auth required - uses tokens)
