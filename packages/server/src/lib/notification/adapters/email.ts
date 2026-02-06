@@ -545,6 +545,34 @@ export function formatEmailHtml(
 export class EmailAdapter implements NotificationChannelAdapter {
   readonly type = "email" as const;
 
+  /** Cached nodemailer transporter — reused across send() calls to avoid per-email TCP connections. */
+  private transporter: import("nodemailer").Transporter | null = null;
+
+  /**
+   * Return a cached SMTP transporter, creating one on first call.
+   * Keeps a single long-lived TCP connection for all outbound emails.
+   */
+  private async getTransporter(): Promise<import("nodemailer").Transporter> {
+    if (this.transporter) return this.transporter;
+
+    const config = getConfig();
+    const nodemailer = await import("nodemailer");
+
+    this.transporter = nodemailer.createTransport({
+      host: config.smtpHost,
+      port: config.smtpPort || 587,
+      secure: config.smtpPort === 465,
+      auth: config.smtpUser
+        ? {
+            user: config.smtpUser,
+            pass: config.smtpPass,
+          }
+        : undefined,
+    });
+
+    return this.transporter;
+  }
+
   isConfigured(): boolean {
     const config = getConfig();
     return Boolean(config.smtpHost && config.smtpFrom);
@@ -577,20 +605,7 @@ export class EmailAdapter implements NotificationChannelAdapter {
         }
       }
 
-      // Dynamic import to avoid requiring nodemailer when not using email
-      const nodemailer = await import("nodemailer");
-
-      const transporter = nodemailer.createTransport({
-        host: config.smtpHost,
-        port: config.smtpPort || 587,
-        secure: config.smtpPort === 465,
-        auth: config.smtpUser
-          ? {
-              user: config.smtpUser,
-              pass: config.smtpPass,
-            }
-          : undefined,
-      });
+      const transporter = await this.getTransporter();
 
       const subject = formatEmailSubject(event);
       const text = formatEmailBody(event, links);
