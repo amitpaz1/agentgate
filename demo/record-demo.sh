@@ -1,76 +1,156 @@
 #!/bin/bash
-# AgentGate Demo Recording Script
-# Run: asciinema rec --command="bash demo/record-demo.sh" /tmp/agentgate-demo.cast
-
 set -e
 
-# Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+RED='\033[0;31m'
+DIM='\033[2m'
+BOLD='\033[1m'
 NC='\033[0m'
 
-type_slow() {
+type_it() {
   local text="$1"
+  local i
   for ((i=0; i<${#text}; i++)); do
-    echo -n "${text:$i:1}"
-    sleep 0.03
+    printf '%s' "${text:$i:1}"
+    sleep 0.04
   done
-  echo
+  printf '\n'
 }
 
-pause() { sleep "${1:-1.5}"; }
-
 clear
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  🛡️  AgentGate — Human-in-the-loop for AI Agents${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-pause 2
+sleep 0.5
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+sleep 0.1
+echo -e "${BLUE}  🛡️  AgentGate — Human-in-the-loop for AI agents${NC}"
+sleep 0.1
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+sleep 2
 
 echo
-echo -e "${GREEN}# 1. Install and start AgentGate${NC}"
-pause
-type_slow "npx @agentgate/cli init"
-pause 2
+echo -e "${GREEN}# An AI agent needs to send a high-value invoice...${NC}"
+sleep 0.5
+echo -e "${DIM}# It can draft the email, but company policy says:${NC}"
+sleep 0.3
+echo -e "${DIM}# \"Emails over \$10k need human approval.\"${NC}"
+sleep 2
 
 echo
-echo -e "${GREEN}# 2. An AI agent requests approval to send an email${NC}"
-pause
-type_slow 'curl -s -X POST http://localhost:3000/api/requests \'
-type_slow '  -H "Authorization: Bearer agk_demo_key" \'
-type_slow '  -H "Content-Type: application/json" \'
-type_slow '  -d '\''{"action":"send_email","params":{"to":"customer@example.com","subject":"Invoice #1234"},"urgency":"high"}'\'''
-pause
-echo
-echo -e "${YELLOW}{\"id\":\"req_abc123\",\"status\":\"pending\",\"action\":\"send_email\",\"urgency\":\"high\"}${NC}"
-pause 2
+echo -e "${BOLD}🤖 Agent${NC} ${DIM}(via MCP tool: agentgate_request)${NC}"
+sleep 0.5
+type_it '   "I need to email this invoice to the client.'
+type_it '    Let me request approval first."'
+sleep 2
 
 echo
-echo -e "${GREEN}# 3. Policy engine evaluates → routes to human${NC}"
-echo -e "   📋 Policy: 'send_email' with urgency=high → require human approval"
-echo -e "   📨 Notification sent to Slack #approvals channel"
-pause 2
+echo -e "${DIM}─── Agent calls agentgate_request MCP tool ───${NC}"
+sleep 0.5
+echo -e "${YELLOW}  Tool: agentgate_request${NC}"
+sleep 0.3
+echo -e "${YELLOW}  Args: {${NC}"
+sleep 0.2
+echo -e "${YELLOW}    \"action\":  \"send_email\",${NC}"
+sleep 0.2
+echo -e "${YELLOW}    \"params\": {${NC}"
+sleep 0.2
+echo -e "${YELLOW}      \"to\":      \"cfo@acme.com\",${NC}"
+sleep 0.2
+echo -e "${YELLOW}      \"subject\": \"Invoice #4821 — \$47,500\",${NC}"
+sleep 0.2
+echo -e "${YELLOW}      \"body\":    \"Please find attached...\"${NC}"
+sleep 0.2
+echo -e "${YELLOW}    },${NC}"
+sleep 0.2
+echo -e "${YELLOW}    \"urgency\": \"high\"${NC}"
+sleep 0.1
+echo -e "${YELLOW}  }${NC}"
+sleep 2
 
 echo
-echo -e "${GREEN}# 4. Human approves via dashboard/Slack/Discord${NC}"
-pause
-type_slow 'curl -s -X POST http://localhost:3000/api/requests/req_abc123/decide \'
-type_slow '  -H "Authorization: Bearer agk_admin_key" \'
-type_slow '  -d '\''{"decision":"approved","reason":"Looks good, send it"}'\'''
-pause
-echo
-echo -e "${YELLOW}{\"id\":\"req_abc123\",\"status\":\"approved\",\"decidedBy\":\"admin\",\"reason\":\"Looks good, send it\"}${NC}"
-pause 2
+echo -e "${DIM}─── AgentGate policy engine evaluates ───${NC}"
+sleep 0.5
+echo -e "   📋 Rule: ${CYAN}send_email + amount > \$10k${NC} → ${RED}require human approval${NC}"
+sleep 0.5
+echo -e "   📨 Notification → ${CYAN}Slack #approvals${NC} + ${CYAN}Dashboard${NC}"
+sleep 2
 
 echo
-echo -e "${GREEN}# 5. Agent gets the green light and executes${NC}"
-echo -e "   ✅ Email sent to customer@example.com"
-echo -e "   📝 Full audit trail logged"
-pause 2
+echo -e "${DIM}─── AgentGate response ───${NC}"
+sleep 0.5
+echo -e "${YELLOW}  {${NC}"
+sleep 0.2
+echo -e "${YELLOW}    \"requestId\": \"req_k8f2m9\",${NC}"
+sleep 0.2
+echo -e "${YELLOW}    \"status\":    \"pending_approval\",${NC}"
+sleep 0.2
+echo -e "${YELLOW}    \"policy\":    \"high-value-email\",${NC}"
+sleep 0.2
+echo -e "${YELLOW}    \"message\":   \"Awaiting human decision\"${NC}"
+sleep 0.2
+echo -e "${YELLOW}  }${NC}"
+sleep 2
 
 echo
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}# A human reviews in Slack / Dashboard / Discord...${NC}"
+sleep 1
+echo
+echo -e "   ${CYAN}┌──────────────────────────────────────────┐${NC}"
+sleep 0.15
+echo -e "   ${CYAN}│  ${BOLD}🛡️  Approval Request${NC}${CYAN}                     │${NC}"
+sleep 0.15
+echo -e "   ${CYAN}│                                          │${NC}"
+sleep 0.15
+echo -e "   ${CYAN}│  Action:  send_email                     │${NC}"
+sleep 0.15
+echo -e "   ${CYAN}│  To:      cfo@acme.com                   │${NC}"
+sleep 0.15
+echo -e "   ${CYAN}│  Subject: Invoice #4821 — \$47,500        │${NC}"
+sleep 0.15
+echo -e "   ${CYAN}│  Urgency: ${RED}HIGH${NC}${CYAN}                            │${NC}"
+sleep 0.15
+echo -e "   ${CYAN}│                                          │${NC}"
+sleep 0.15
+echo -e "   ${CYAN}│     ${GREEN}[ ✅ Approve ]${NC}${CYAN}  ${RED}[ ❌ Deny ]${NC}${CYAN}          │${NC}"
+sleep 0.15
+echo -e "   ${CYAN}└──────────────────────────────────────────┘${NC}"
+sleep 2
+
+echo
+echo -e "   ${GREEN}✅ CFO clicks Approve: \"Verified, send it\"${NC}"
+sleep 2
+
+echo
+echo -e "${BOLD}🤖 Agent${NC} ${DIM}(polls agentgate_status → approved!)${NC}"
+sleep 0.5
+type_it '   "Approved! Sending the invoice now."'
+sleep 0.5
+echo -e "   ✅ Email sent to cfo@acme.com"
+sleep 2
+
+echo
+echo -e "${GREEN}# Full audit trail — every action tracked${NC}"
+sleep 1
+echo -e "${YELLOW}  \"action\":    \"send_email\"        ${DIM}→ what${NC}"
+sleep 0.4
+echo -e "${YELLOW}  \"requested\": \"ai-billing-agent\"  ${DIM}→ who asked${NC}"
+sleep 0.4
+echo -e "${YELLOW}  \"decided\":   \"sarah@company.com\" ${DIM}→ who approved${NC}"
+sleep 0.4
+echo -e "${YELLOW}  \"reason\":    \"Verified, send it\" ${DIM}→ why${NC}"
+sleep 0.4
+echo -e "${YELLOW}  \"duration\":  \"34s\"               ${DIM}→ how fast${NC}"
+sleep 2
+
+echo
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+sleep 0.1
 echo -e "${BLUE}  Agents request. Policies decide. Humans approve.${NC}"
+sleep 0.1
+echo -e "${BLUE}  Full audit trail. MCP-native. Slack/Discord/Dashboard.${NC}"
+sleep 0.1
 echo -e "${BLUE}  → github.com/amitpaz1/agentgate${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-pause 3
+sleep 0.1
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+sleep 8
