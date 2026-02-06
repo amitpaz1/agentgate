@@ -3,6 +3,7 @@
  * All environment variables are validated and typed at startup
  */
 
+import { readFileSync } from "node:fs";
 import { z } from "zod";
 
 // ============================================================================
@@ -193,10 +194,51 @@ const ENV_MAP: Record<string, keyof z.infer<typeof ConfigSchema>> = {
 // Config Loading Functions
 // ============================================================================
 
+// ============================================================================
+// File-Based Secrets (_FILE suffix support for Docker secrets)
+// ============================================================================
+
+/** Secret keys that support _FILE suffix for Docker secrets */
+const SECRET_KEYS = [
+  "ADMIN_API_KEY",
+  "JWT_SECRET",
+  "DATABASE_URL",
+  "REDIS_URL",
+  "SLACK_BOT_TOKEN",
+  "SLACK_SIGNING_SECRET",
+  "DISCORD_BOT_TOKEN",
+  "SMTP_PASS",
+] as const;
+
+/**
+ * Resolve _FILE suffixed env vars into their base env vars.
+ * For each secret key, if KEY_FILE is set and KEY is not,
+ * reads the file and sets KEY in process.env.
+ * This allows Docker secrets mounted as files to be used transparently.
+ */
+function resolveFileSecrets(): void {
+  for (const key of SECRET_KEYS) {
+    const fileKey = `${key}_FILE`;
+    const filePath = process.env[fileKey];
+    if (filePath && !process.env[key]) {
+      try {
+        process.env[key] = readFileSync(filePath, "utf-8").trim();
+      } catch (err) {
+        // console.error is intentional: logger is not initialized at config load time
+        console.error(
+          `Warning: Could not read secret file for ${fileKey}: ${err}`
+        );
+      }
+    }
+  }
+}
+
 /**
  * Load raw values from environment variables
  */
 function loadFromEnv(): Record<string, unknown> {
+  resolveFileSecrets();
+
   const raw: Record<string, unknown> = {};
 
   for (const [envKey, configKey] of Object.entries(ENV_MAP)) {

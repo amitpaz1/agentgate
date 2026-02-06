@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   parseConfig,
   loadConfig,
@@ -322,6 +325,94 @@ describe("config", () => {
 
       const config = getConfig();
       expect(config.port).toBe(9999);
+    });
+  });
+
+  describe("file-based secrets (_FILE suffix)", () => {
+    const secretDir = join(tmpdir(), "agentgate-test-secrets");
+
+    beforeEach(() => {
+      mkdirSync(secretDir, { recursive: true });
+    });
+
+    afterEach(() => {
+      rmSync(secretDir, { recursive: true, force: true });
+      // Clean up all _FILE env vars
+      for (const key of [
+        "ADMIN_API_KEY_FILE",
+        "JWT_SECRET_FILE",
+        "DATABASE_URL_FILE",
+        "REDIS_URL_FILE",
+        "SLACK_BOT_TOKEN_FILE",
+        "SLACK_SIGNING_SECRET_FILE",
+        "DISCORD_BOT_TOKEN_FILE",
+        "SMTP_PASS_FILE",
+      ]) {
+        delete process.env[key];
+      }
+    });
+
+    it("should read ADMIN_API_KEY from file when _FILE is set", () => {
+      const secretFile = join(secretDir, "admin-key");
+      writeFileSync(secretFile, "my-secret-admin-key-1234\n");
+      process.env.ADMIN_API_KEY_FILE = secretFile;
+      delete process.env.ADMIN_API_KEY;
+
+      const config = loadConfig();
+      expect(config.adminApiKey).toBe("my-secret-admin-key-1234");
+    });
+
+    it("should trim whitespace/newlines from secret files", () => {
+      const secretFile = join(secretDir, "jwt-secret");
+      writeFileSync(secretFile, "  jwt-secret-value-that-is-at-least-32-chars!!  \n\n");
+      process.env.JWT_SECRET_FILE = secretFile;
+      delete process.env.JWT_SECRET;
+
+      const config = loadConfig();
+      expect(config.jwtSecret).toBe("jwt-secret-value-that-is-at-least-32-chars!!");
+    });
+
+    it("should prefer env var over _FILE when both are set", () => {
+      const secretFile = join(secretDir, "admin-key");
+      writeFileSync(secretFile, "from-file-secret-key!");
+      process.env.ADMIN_API_KEY_FILE = secretFile;
+      process.env.ADMIN_API_KEY = "from-env-secret-key!";
+
+      const config = loadConfig();
+      expect(config.adminApiKey).toBe("from-env-secret-key!");
+    });
+
+    it("should handle missing secret file gracefully", () => {
+      process.env.ADMIN_API_KEY_FILE = join(secretDir, "nonexistent");
+      delete process.env.ADMIN_API_KEY;
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const config = loadConfig();
+      expect(config.adminApiKey).toBeUndefined();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Warning: Could not read secret file for ADMIN_API_KEY_FILE")
+      );
+      consoleSpy.mockRestore();
+    });
+
+    it("should resolve DATABASE_URL from file", () => {
+      const secretFile = join(secretDir, "db-url");
+      writeFileSync(secretFile, "postgresql://user:pass@host:5432/db\n");
+      process.env.DATABASE_URL_FILE = secretFile;
+      delete process.env.DATABASE_URL;
+
+      const config = loadConfig();
+      expect(config.databaseUrl).toBe("postgresql://user:pass@host:5432/db");
+    });
+
+    it("should resolve SMTP_PASS from file", () => {
+      const secretFile = join(secretDir, "smtp-pass");
+      writeFileSync(secretFile, "smtp-password-123\n");
+      process.env.SMTP_PASS_FILE = secretFile;
+      delete process.env.SMTP_PASS;
+
+      const config = loadConfig();
+      expect(config.smtpPass).toBe("smtp-password-123");
     });
   });
 
