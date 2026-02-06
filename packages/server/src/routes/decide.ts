@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import { html } from "hono/html";
 import { eq } from "drizzle-orm";
-import { db, approvalRequests, decisionTokens } from "../db/index.js";
+import { getDb, approvalRequests, decisionTokens } from "../db/index.js";
 import { logAuditEvent } from "../lib/audit.js";
 import { deliverWebhook } from "../lib/webhook.js";
 
@@ -130,7 +130,7 @@ decideRouter.get("/:token", async (c) => {
   const now = new Date();
 
   // Find the token
-  const tokenResult = await db
+  const tokenResult = await getDb()
     .select()
     .from(decisionTokens)
     .where(eq(decisionTokens.token, token))
@@ -176,7 +176,7 @@ decideRouter.get("/:token", async (c) => {
   }
 
   // Find the associated request
-  const requestResult = await db
+  const requestResult = await getDb()
     .select()
     .from(approvalRequests)
     .where(eq(approvalRequests.id, tokenRecord.requestId))
@@ -217,13 +217,13 @@ decideRouter.get("/:token", async (c) => {
   const decidedBy = "token";
 
   // Mark token as used
-  await db
+  await getDb()
     .update(decisionTokens)
     .set({ usedAt: now })
     .where(eq(decisionTokens.id, tokenRecord.id));
 
   // Update the request
-  await db
+  await getDb()
     .update(approvalRequests)
     .set({
       status: decision,
@@ -247,7 +247,7 @@ decideRouter.get("/:token", async (c) => {
   );
 
   // Fetch updated record for webhook
-  const updated = await db
+  const updated = await getDb()
     .select()
     .from(approvalRequests)
     .where(eq(approvalRequests.id, request.id))

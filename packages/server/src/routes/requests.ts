@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { eq, desc, and, sql } from "drizzle-orm";
-import { db, approvalRequests, auditLogs, policies } from "../db/index.js";
+import { getDb, approvalRequests, auditLogs, policies } from "../db/index.js";
 import {
   evaluatePolicy,
   EventNames,
@@ -139,7 +139,7 @@ requestsRouter.post("/", async (c) => {
   const now = new Date();
 
   // Load policies from database
-  const allPolicies = await db.select().from(policies).orderBy(policies.priority);
+  const allPolicies = await getDb().select().from(policies).orderBy(policies.priority);
   
   // Convert DB policies to core Policy type
   const corePolicies: CorePolicy[] = allPolicies.map((p) => ({
@@ -190,7 +190,7 @@ requestsRouter.post("/", async (c) => {
   // route_to_human and route_to_agent stay pending
 
   // Insert into database
-  await db.insert(approvalRequests).values({
+  await getDb().insert(approvalRequests).values({
     id,
     action,
     params: JSON.stringify(params),
@@ -342,7 +342,7 @@ requestsRouter.post("/", async (c) => {
 requestsRouter.get("/:id", async (c) => {
   const { id } = c.req.param();
 
-  const result = await db
+  const result = await getDb()
     .select()
     .from(approvalRequests)
     .where(eq(approvalRequests.id, id))
@@ -372,7 +372,7 @@ requestsRouter.get("/", async (c) => {
   }
 
   // Build query
-  let query = db.select().from(approvalRequests);
+  let query = getDb().select().from(approvalRequests);
   
   if (conditions.length > 0) {
     query = query.where(and(...conditions)) as typeof query;
@@ -384,7 +384,7 @@ requestsRouter.get("/", async (c) => {
     .offset(offset);
 
   // Get total count for pagination
-  let countQuery = db.select({ count: sql<number>`count(*)` }).from(approvalRequests);
+  let countQuery = getDb().select({ count: sql<number>`count(*)` }).from(approvalRequests);
   if (conditions.length > 0) {
     countQuery = countQuery.where(and(...conditions)) as typeof countQuery;
   }
@@ -407,7 +407,7 @@ requestsRouter.post("/:id/decide", async (c) => {
   const { id } = c.req.param();
 
   // Check if request exists and is pending
-  const existing = await db
+  const existing = await getDb()
     .select()
     .from(approvalRequests)
     .where(eq(approvalRequests.id, id))
@@ -436,7 +436,7 @@ requestsRouter.post("/:id/decide", async (c) => {
   const now = new Date();
 
   // Update the request
-  await db
+  await getDb()
     .update(approvalRequests)
     .set({
       status: decision,
@@ -456,7 +456,7 @@ requestsRouter.post("/:id/decide", async (c) => {
   );
 
   // Fetch updated record
-  const updated = await db
+  const updated = await getDb()
     .select()
     .from(approvalRequests)
     .where(eq(approvalRequests.id, id))
@@ -493,7 +493,7 @@ requestsRouter.get("/:id/audit", async (c) => {
   const { id } = c.req.param();
 
   // Check if request exists
-  const existing = await db
+  const existing = await getDb()
     .select()
     .from(approvalRequests)
     .where(eq(approvalRequests.id, id))
@@ -504,7 +504,7 @@ requestsRouter.get("/:id/audit", async (c) => {
   }
 
   // Fetch audit logs
-  const logs = await db
+  const logs = await getDb()
     .select()
     .from(auditLogs)
     .where(eq(auditLogs.requestId, id))

@@ -126,6 +126,23 @@ export function getDatabase(): Database {
 }
 
 /**
+ * Get the database instance typed for use with SQLite schema tables.
+ * 
+ * Both SQLite and PostgreSQL Drizzle instances expose the same query API
+ * (.select(), .insert(), .update(), .delete()), so we return the SQLite
+ * flavor type which all route/lib files were originally written against.
+ * At runtime, PostgresJsDatabase methods are fully compatible.
+ * 
+ * @throws Error if database not initialized
+ */
+export function getDb(): BetterSQLite3Database<Schema> {
+  if (!_db) {
+    throw new Error("Database not initialized. Call initDatabase() first.");
+  }
+  return _db as unknown as BetterSQLite3Database<Schema>;
+}
+
+/**
  * Get the raw SQLite connection (only for SQLite dialect)
  * 
  * @throws Error if using PostgreSQL or not initialized

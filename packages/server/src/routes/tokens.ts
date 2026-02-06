@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "crypto";
-import { db, approvalRequests, decisionTokens } from "../db/index.js";
+import { getDb, approvalRequests, decisionTokens } from "../db/index.js";
 import { getConfig } from "../config.js";
 import { logAuditEvent } from "../lib/audit.js";
 
@@ -21,7 +21,7 @@ tokensRouter.post("/requests/:id/tokens", async (c) => {
   const config = getConfig();
 
   // Check if request exists
-  const existing = await db
+  const existing = await getDb()
     .select()
     .from(approvalRequests)
     .where(eq(approvalRequests.id, id))
@@ -53,7 +53,7 @@ tokensRouter.post("/requests/:id/tokens", async (c) => {
   const denyId = nanoid();
 
   // Insert tokens
-  await db.insert(decisionTokens).values([
+  await getDb().insert(decisionTokens).values([
     {
       id: approveId,
       requestId: id,

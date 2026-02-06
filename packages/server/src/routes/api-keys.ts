@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { eq } from 'drizzle-orm';
-import { db } from '../db/index.js';
+import { getDb } from '../db/index.js';
 import { apiKeys } from '../db/schema.js';
 import { createApiKey, revokeApiKey } from '../lib/api-keys.js';
 import { requireScope } from '../middleware/auth.js';
@@ -36,7 +36,7 @@ router.post('/', zValidator('json', createKeySchema), async (c) => {
 
 // List API keys (without the actual key)
 router.get('/', async (c) => {
-  const keys = await db.select({
+  const keys = await getDb().select({
     id: apiKeys.id,
     name: apiKeys.name,
     scopes: apiKeys.scopes,
@@ -75,7 +75,7 @@ router.patch('/:id', zValidator('json', updateKeySchema), async (c) => {
     return c.json({ error: 'No fields to update' }, 400);
   }
   
-  await db.update(apiKeys).set(updateData).where(eq(apiKeys.id, id));
+  await getDb().update(apiKeys).set(updateData).where(eq(apiKeys.id, id));
   
   return c.json({ success: true });
 });

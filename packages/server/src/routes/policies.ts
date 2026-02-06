@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
-import { db, policies } from "../db/index.js";
+import { getDb, policies } from "../db/index.js";
 import type { PolicyRule } from "@agentgate/core";
 
 const policiesRouter = new Hono();
@@ -66,7 +66,7 @@ function validatePolicyBody(body: unknown): {
 
 // GET /api/policies - List all policies
 policiesRouter.get("/", async (c) => {
-  const allPolicies = await db.select().from(policies).orderBy(policies.priority);
+  const allPolicies = await getDb().select().from(policies).orderBy(policies.priority);
 
   // Parse rules JSON for each policy
   const parsed = allPolicies.map((p) => ({
@@ -90,7 +90,7 @@ policiesRouter.post("/", async (c) => {
   const id = nanoid();
   const now = new Date();
 
-  await db.insert(policies).values({
+  await getDb().insert(policies).values({
     id,
     name,
     rules: JSON.stringify(rules),
@@ -117,7 +117,7 @@ policiesRouter.put("/:id", async (c) => {
   const { id } = c.req.param();
 
   // Check if policy exists
-  const existing = await db.select().from(policies).where(eq(policies.id, id)).limit(1);
+  const existing = await getDb().select().from(policies).where(eq(policies.id, id)).limit(1);
 
   if (existing.length === 0) {
     return c.json({ error: "Policy not found" }, 404);
@@ -132,7 +132,7 @@ policiesRouter.put("/:id", async (c) => {
 
   const { name, rules, priority, enabled } = validation.data!;
 
-  await db
+  await getDb()
     .update(policies)
     .set({
       name,
@@ -157,13 +157,13 @@ policiesRouter.delete("/:id", async (c) => {
   const { id } = c.req.param();
 
   // Check if policy exists
-  const existing = await db.select().from(policies).where(eq(policies.id, id)).limit(1);
+  const existing = await getDb().select().from(policies).where(eq(policies.id, id)).limit(1);
 
   if (existing.length === 0) {
     return c.json({ error: "Policy not found" }, 404);
   }
 
-  await db.delete(policies).where(eq(policies.id, id));
+  await getDb().delete(policies).where(eq(policies.id, id));
 
   return c.json({ success: true, id });
 });

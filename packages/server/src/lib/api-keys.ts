@@ -3,7 +3,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { nanoid } from "nanoid";
 import { eq, and, isNull } from "drizzle-orm";
-import { db, apiKeys, type ApiKey } from "../db/index.js";
+import { getDb, apiKeys, type ApiKey } from "../db/index.js";
 
 /**
  * Hash an API key using SHA256
@@ -39,7 +39,7 @@ export async function createApiKey(
   const id = nanoid();
   const { key, hash } = generateApiKey();
 
-  await db.insert(apiKeys).values({
+  await getDb().insert(apiKeys).values({
     id,
     keyHash: hash,
     name,
@@ -59,7 +59,7 @@ export async function createApiKey(
 export async function validateApiKey(key: string): Promise<ApiKey | null> {
   const hash = hashApiKey(key);
 
-  const results = await db
+  const results = await getDb()
     .select()
     .from(apiKeys)
     .where(and(eq(apiKeys.keyHash, hash), isNull(apiKeys.revokedAt)))
@@ -71,7 +71,7 @@ export async function validateApiKey(key: string): Promise<ApiKey | null> {
   }
 
   // Update last_used_at
-  await db
+  await getDb()
     .update(apiKeys)
     .set({ lastUsedAt: Math.floor(Date.now() / 1000) })
     .where(eq(apiKeys.id, apiKey.id));
@@ -84,7 +84,7 @@ export async function validateApiKey(key: string): Promise<ApiKey | null> {
  * @param id - The API key ID to revoke
  */
 export async function revokeApiKey(id: string): Promise<void> {
-  await db
+  await getDb()
     .update(apiKeys)
     .set({ revokedAt: Math.floor(Date.now() / 1000) })
     .where(eq(apiKeys.id, id));

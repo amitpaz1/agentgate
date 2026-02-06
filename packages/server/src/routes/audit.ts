@@ -2,7 +2,7 @@
 
 import { Hono } from "hono";
 import { eq, and, gte, lte, desc, sql, type SQL } from "drizzle-orm";
-import { db, auditLogs, approvalRequests } from "../db/index.js";
+import { getDb, auditLogs, approvalRequests } from "../db/index.js";
 
 const auditRouter = new Hono();
 
@@ -93,7 +93,7 @@ auditRouter.get("/", async (c) => {
   }
 
   // Execute query with join
-  const query = db
+  const query = getDb()
     .select({
       audit: auditLogs,
       request: {
@@ -114,7 +114,7 @@ auditRouter.get("/", async (c) => {
     : await query;
 
   // Get total count for pagination
-  const countQuery = db
+  const countQuery = getDb()
     .select({ count: sql<number>`count(*)` })
     .from(auditLogs)
     .leftJoin(approvalRequests, eq(auditLogs.requestId, approvalRequests.id));
@@ -156,7 +156,7 @@ auditRouter.get("/", async (c) => {
 
 // GET /api/audit/actions - Get unique action values for filter dropdown
 auditRouter.get("/actions", async (c) => {
-  const results = await db
+  const results = await getDb()
     .selectDistinct({ action: approvalRequests.action })
     .from(approvalRequests)
     .orderBy(approvalRequests.action);
@@ -168,7 +168,7 @@ auditRouter.get("/actions", async (c) => {
 
 // GET /api/audit/actors - Get unique actor values for filter dropdown
 auditRouter.get("/actors", async (c) => {
-  const results = await db
+  const results = await getDb()
     .selectDistinct({ actor: auditLogs.actor })
     .from(auditLogs)
     .orderBy(auditLogs.actor);

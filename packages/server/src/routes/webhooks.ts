@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { db } from '../db/index.js';
+import { getDb } from '../db/index.js';
 import { webhooks, webhookDeliveries } from '../db/schema.js';
 import { requireScope } from '../middleware/auth.js';
 import { eq, desc } from 'drizzle-orm';
@@ -33,7 +33,7 @@ router.post('/', zValidator('json', createWebhookSchema), async (c) => {
   const id = nanoid();
   const webhookSecret = secret || crypto.randomBytes(32).toString('hex');
   
-  await db.insert(webhooks).values({
+  await getDb().insert(webhooks).values({
     id,
     url,
     events: JSON.stringify(events),
@@ -54,7 +54,7 @@ router.post('/', zValidator('json', createWebhookSchema), async (c) => {
 
 // List webhooks (without secrets)
 router.get('/', async (c) => {
-  const result = await db.select({
+  const result = await getDb().select({
     id: webhooks.id,
     url: webhooks.url,
     events: webhooks.events,
@@ -75,7 +75,7 @@ router.get('/', async (c) => {
 router.get('/:id', async (c) => {
   const id = c.req.param('id');
   
-  const webhook = await db.select({
+  const webhook = await getDb().select({
     id: webhooks.id,
     url: webhooks.url,
     events: webhooks.events,
@@ -89,7 +89,7 @@ router.get('/:id', async (c) => {
   }
   
   // Get recent deliveries
-  const deliveries = await db.select()
+  const deliveries = await getDb().select()
     .from(webhookDeliveries)
     .where(eq(webhookDeliveries.webhookId, id))
     .orderBy(desc(webhookDeliveries.lastAttemptAt))
@@ -127,7 +127,7 @@ router.patch('/:id', zValidator('json', updateWebhookSchema), async (c) => {
   if (updates.events) updateData.events = JSON.stringify(updates.events);
   if (updates.enabled !== undefined) updateData.enabled = updates.enabled ? 1 : 0;
   
-  await db.update(webhooks).set(updateData).where(eq(webhooks.id, id));
+  await getDb().update(webhooks).set(updateData).where(eq(webhooks.id, id));
   
   return c.json({ success: true });
 });
@@ -135,7 +135,7 @@ router.patch('/:id', zValidator('json', updateWebhookSchema), async (c) => {
 // Delete webhook
 router.delete('/:id', async (c) => {
   const id = c.req.param('id');
-  await db.delete(webhooks).where(eq(webhooks.id, id));
+  await getDb().delete(webhooks).where(eq(webhooks.id, id));
   return c.json({ success: true });
 });
 
@@ -143,7 +143,7 @@ router.delete('/:id', async (c) => {
 router.post('/:id/test', async (c) => {
   const id = c.req.param('id');
   
-  const webhook = await db.select().from(webhooks).where(eq(webhooks.id, id)).limit(1);
+  const webhook = await getDb().select().from(webhooks).where(eq(webhooks.id, id)).limit(1);
   const webhookRecord = webhook[0];
   if (!webhookRecord) {
     return c.json({ error: 'Webhook not found' }, 404);

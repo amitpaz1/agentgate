@@ -8,7 +8,7 @@
 import { nanoid } from "nanoid";
 import { randomBytes } from "crypto";
 import { eq } from "drizzle-orm";
-import { db, approvalRequests, decisionTokens } from "../db/index.js";
+import { getDb, approvalRequests, decisionTokens } from "../db/index.js";
 import { getConfig } from "../config.js";
 import { logAuditEvent } from "./audit.js";
 
@@ -47,7 +47,7 @@ export async function generateDecisionTokens(
   const config = getConfig();
 
   // Check if request exists and is pending
-  const existing = await db
+  const existing = await getDb()
     .select()
     .from(approvalRequests)
     .where(eq(approvalRequests.id, requestId))
@@ -76,7 +76,7 @@ export async function generateDecisionTokens(
   const denyId = nanoid();
 
   // Insert tokens
-  await db.insert(decisionTokens).values([
+  await getDb().insert(decisionTokens).values([
     {
       id: approveId,
       requestId,

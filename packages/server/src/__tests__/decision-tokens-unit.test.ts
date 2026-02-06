@@ -2,21 +2,26 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { resetConfig, setConfig, parseConfig } from "../config.js";
 
 // We need to mock the database and audit before importing the module
-vi.mock("../db/index.js", () => ({
-  db: {
+// We need to mock the database and audit before importing the module
+vi.mock("../db/index.js", () => {
+  const mockDb = {
     select: vi.fn(),
     insert: vi.fn(),
-  },
-  approvalRequests: { id: "id" },
-  decisionTokens: { id: "id" },
-}));
+  };
+  return {
+    db: mockDb,
+    getDb: () => mockDb,
+    approvalRequests: { id: "id" },
+    decisionTokens: { id: "id" },
+  };
+});
 
 vi.mock("../lib/audit.js", () => ({
   logAuditEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { generateDecisionTokens } from "../lib/decision-tokens.js";
-import { db, approvalRequests, decisionTokens } from "../db/index.js";
+import { getDb } from "../db/index.js";
 import { logAuditEvent } from "../lib/audit.js";
 
 describe("Decision Tokens Unit Tests", () => {
@@ -43,7 +48,7 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const result = await generateDecisionTokens("nonexistent-request");
 
@@ -60,7 +65,7 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const result = await generateDecisionTokens("req-123");
 
@@ -77,7 +82,7 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const result = await generateDecisionTokens("req-123");
 
@@ -94,7 +99,7 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const result = await generateDecisionTokens("req-123");
 
@@ -111,12 +116,12 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       const result = await generateDecisionTokens("req-123");
 
@@ -139,12 +144,12 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       const result = await generateDecisionTokens("req-123");
 
@@ -161,12 +166,12 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       const result = await generateDecisionTokens("req-123");
 
@@ -187,12 +192,12 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       const result = await generateDecisionTokens("req-123");
 
@@ -215,12 +220,12 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       const result = await generateDecisionTokens("req-123");
 
@@ -243,12 +248,12 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       const result = await generateDecisionTokens("req-123");
 
@@ -265,7 +270,7 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       let insertedValues: any[] = [];
       const mockInsert = vi.fn().mockReturnValue({
@@ -274,7 +279,7 @@ describe("Decision Tokens Unit Tests", () => {
           return Promise.resolve(undefined);
         }),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       await generateDecisionTokens("req-123");
 
@@ -293,7 +298,7 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       let insertedValues: any[] = [];
       const mockInsert = vi.fn().mockReturnValue({
@@ -302,7 +307,7 @@ describe("Decision Tokens Unit Tests", () => {
           return Promise.resolve(undefined);
         }),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       await generateDecisionTokens("req-456");
 
@@ -324,7 +329,7 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       let insertedValues: any[] = [];
       const mockInsert = vi.fn().mockReturnValue({
@@ -333,7 +338,7 @@ describe("Decision Tokens Unit Tests", () => {
           return Promise.resolve(undefined);
         }),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       const beforeTime = new Date();
       await generateDecisionTokens("req-123");
@@ -358,12 +363,12 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       await generateDecisionTokens("req-123");
 
@@ -387,12 +392,12 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       await generateDecisionTokens("req-123");
 
@@ -416,12 +421,12 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       const result = await generateDecisionTokens("req-123");
 
@@ -439,12 +444,12 @@ describe("Decision Tokens Unit Tests", () => {
           }),
         }),
       });
-      (db.select as any).mockImplementation(mockSelect);
+      (getDb().select as any).mockImplementation(mockSelect);
 
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       });
-      (db.insert as any).mockImplementation(mockInsert);
+      (getDb().insert as any).mockImplementation(mockInsert);
 
       const result = await generateDecisionTokens("req-123");
 

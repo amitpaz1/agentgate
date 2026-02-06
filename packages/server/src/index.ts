@@ -12,6 +12,7 @@ import decideRouter from "./routes/decide.js";
 import { authMiddleware, type AuthVariables } from "./middleware/auth.js";
 import { getConfig } from "./config.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
+import { initDatabase } from "./db/index.js";
 
 // Create Hono app with typed variables
 const app = new Hono<{ Variables: AuthVariables }>();
@@ -92,13 +93,27 @@ app.notFound((c) => {
 // Start server
 const port = parseInt(process.env.PORT || "3000", 10);
 
-console.log(`Starting AgentGate server on port ${port}...`);
+async function main() {
+  // Initialize database BEFORE server starts listening.
+  // This is critical for PostgreSQL which requires async initialization.
+  // For SQLite, the sync `db` export still works, but all routes now use getDb()
+  // which returns the same initialized instance.
+  await initDatabase();
+  console.log("Database initialized.");
 
-serve({
-  fetch: app.fetch,
-  port,
+  console.log(`Starting AgentGate server on port ${port}...`);
+
+  serve({
+    fetch: app.fetch,
+    port,
+  });
+
+  console.log(`AgentGate server running at http://localhost:${port}`);
+}
+
+main().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });
-
-console.log(`AgentGate server running at http://localhost:${port}`);
 
 export default app;

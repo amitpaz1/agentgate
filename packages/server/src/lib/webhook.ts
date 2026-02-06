@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { db } from '../db/index.js';
+import { getDb } from '../db/index.js';
 import { webhooks, webhookDeliveries } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -13,7 +13,7 @@ export function signPayload(payload: string, secret: string): string {
 // Deliver webhook to all matching endpoints
 export async function deliverWebhook(event: string, data: unknown): Promise<void> {
   // Find enabled webhooks that subscribe to this event
-  const matchingWebhooks = await db.select().from(webhooks)
+  const matchingWebhooks = await getDb().select().from(webhooks)
     .where(eq(webhooks.enabled, 1));
   
   const filtered = matchingWebhooks.filter(wh => {
@@ -32,7 +32,7 @@ async function deliverToWebhook(webhook: typeof webhooks.$inferSelect, event: st
   
   // Create delivery record
   const deliveryId = nanoid();
-  await db.insert(webhookDeliveries).values({
+  await getDb().insert(webhookDeliveries).values({
     id: deliveryId,
     webhookId: webhook.id,
     event,
@@ -51,7 +51,7 @@ async function attemptDelivery(deliveryId: string, url: string, payload: string,
   // SSRF protection: Re-validate URL before each delivery attempt (DNS rebinding defense)
   const validation = await validateWebhookUrl(url);
   if (!validation.valid) {
-    await db.update(webhookDeliveries)
+    await getDb().update(webhookDeliveries)
       .set({
         status: 'failed',
         attempts: attempt,
@@ -74,7 +74,7 @@ async function attemptDelivery(deliveryId: string, url: string, payload: string,
 
     const responseBody = await response.text().catch(() => null);
 
-    await db.update(webhookDeliveries)
+    await getDb().update(webhookDeliveries)
       .set({
         status: response.ok ? 'success' : 'failed',
         attempts: attempt,
@@ -90,7 +90,7 @@ async function attemptDelivery(deliveryId: string, url: string, payload: string,
         Math.pow(2, attempt) * 1000);
     }
   } catch (error) {
-    await db.update(webhookDeliveries)
+    await getDb().update(webhookDeliveries)
       .set({
         status: 'failed',
         attempts: attempt,

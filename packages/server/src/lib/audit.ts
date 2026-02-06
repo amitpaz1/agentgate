@@ -1,7 +1,7 @@
 // @agentgate/server - Audit logging helper
 
 import { nanoid } from "nanoid";
-import { db, auditLogs } from "../db/index.js";
+import { getDb, auditLogs } from "../db/index.js";
 
 export type AuditEventType = "created" | "approved" | "denied" | "expired" | "viewed";
 
@@ -18,7 +18,7 @@ export async function logAuditEvent(
   actor: string,
   details?: AuditDetails
 ): Promise<void> {
-  await db.insert(auditLogs).values({
+  await getDb().insert(auditLogs).values({
     id: nanoid(),
     requestId,
     eventType,
