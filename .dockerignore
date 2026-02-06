@@ -1,0 +1,41 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies (will be installed in Docker)
+node_modules
+
+# Build artifacts
+**/dist
+**/build
+
+# Test files
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+coverage
+
+# Development files
+.env
+.env.*
+!.env.example
+*.md
+!README.md
+LICENSE
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# BMAD artifacts
+_bmad*
+
+# Data
+data/
+*.db
