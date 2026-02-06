@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'AgentGate',
   description: 'Human-in-the-loop approval system for AI agents',
+  base: '/agentgate/',
   
   // Ignore localhost links (documentation references)
   ignoreDeadLinks: [
