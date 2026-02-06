@@ -12,7 +12,7 @@ import decideRouter from "./routes/decide.js";
 import { authMiddleware, type AuthVariables } from "./middleware/auth.js";
 import { getConfig } from "./config.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
-import { initDatabase } from "./db/index.js";
+import { initDatabase, runMigrations } from "./db/index.js";
 
 // Create Hono app with typed variables
 const app = new Hono<{ Variables: AuthVariables }>();
@@ -100,6 +100,9 @@ async function main() {
   // which returns the same initialized instance.
   await initDatabase();
   console.log("Database initialized.");
+
+  await runMigrations();
+  console.log("Database migrations applied.");
 
   console.log(`Starting AgentGate server on port ${port}...`);
 

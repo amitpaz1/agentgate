@@ -187,6 +187,46 @@ export async function closeDatabase(): Promise<void> {
   _db = null;
 }
 
+/**
+ * Run database migrations automatically.
+ *
+ * Uses drizzle-orm's built-in migrators which are idempotent — already-applied
+ * migrations are skipped.  Must be called after initDatabase().
+ *
+ * Migration SQL files live under `packages/server/drizzle/<dialect>/`.
+ * We resolve the path relative to this source file so it works regardless of
+ * whether the server is launched via `tsx` (from src/) or `node` (from dist/).
+ */
+export async function runMigrations(): Promise<void> {
+  if (!_db) {
+    throw new Error("Database not initialized. Call initDatabase() before runMigrations().");
+  }
+
+  const { fileURLToPath } = await import("node:url");
+  const { resolve, dirname } = await import("node:path");
+
+  // __dirname equivalent for ESM
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  // From src/db/ or dist/db/ → go up two levels to package root, then into drizzle/<dialect>
+  const packageRoot = resolve(currentDir, "..", "..");
+
+  const dialect = getDialect();
+
+  if (dialect === "postgres") {
+    const migrationsFolder = resolve(packageRoot, "drizzle", "postgres");
+    const { migrate } = await import("drizzle-orm/postgres-js/migrator");
+    await migrate(_db as unknown as import("drizzle-orm/postgres-js").PostgresJsDatabase, {
+      migrationsFolder,
+    });
+  } else {
+    const migrationsFolder = resolve(packageRoot, "drizzle", "sqlite");
+    const { migrate } = await import("drizzle-orm/better-sqlite3/migrator");
+    migrate(_db as unknown as import("drizzle-orm/better-sqlite3").BetterSQLite3Database, {
+      migrationsFolder,
+    });
+  }
+}
+
 // ============================================================================
 // Synchronous API for backward compatibility
 // ============================================================================
