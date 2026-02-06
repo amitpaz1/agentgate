@@ -26,6 +26,8 @@ export interface DiscordBotOptions {
   defaultChannelId?: string;
   /** Whether to include one-click decision links (requires token generation) */
   includeDecisionLinks?: boolean;
+  /** API key for authenticating with the AgentGate server */
+  apiKey?: string;
 }
 
 export interface DiscordBot {
@@ -48,12 +50,18 @@ export interface DiscordBot {
  */
 async function fetchDecisionTokens(
   agentgateUrl: string,
-  requestId: string
+  requestId: string,
+  apiKey?: string
 ): Promise<DecisionLinks | null> {
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
     const response = await fetch(`${agentgateUrl}/api/requests/${requestId}/tokens`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
     });
 
     if (!response.ok) {
@@ -106,9 +114,14 @@ export function createDiscordBot(options: DiscordBotOptions): DiscordBot {
       await interaction.deferUpdate();
 
       // Call AgentGate API to decide
+      const decideHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (options.apiKey) {
+        decideHeaders["Authorization"] = `Bearer ${options.apiKey}`;
+      }
+
       const response = await fetch(`${agentgateUrl}/api/requests/${requestId}/decide`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: decideHeaders,
         body: JSON.stringify({
           decision,
           decidedBy: userId,
@@ -173,7 +186,7 @@ export function createDiscordBot(options: DiscordBotOptions): DiscordBot {
     let links: DecisionLinks | undefined;
     const shouldIncludeLinks = sendOptions?.includeLinks ?? includeDecisionLinks;
     if (shouldIncludeLinks) {
-      const fetchedLinks = await fetchDecisionTokens(agentgateUrl, request.id);
+      const fetchedLinks = await fetchDecisionTokens(agentgateUrl, request.id, options.apiKey);
       if (fetchedLinks) {
         links = fetchedLinks;
       }
