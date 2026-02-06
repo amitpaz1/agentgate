@@ -1,0 +1,151 @@
+# ==========================================================================
+# AgentGate Production Compose File (Pre-built Images)
+# ==========================================================================
+# Use this file for air-gapped or production deployments where images
+# are pre-built and loaded via `docker load`.
+#
+# Usage:
+#   docker compose -f docker-compose.production.yml up -d
+#
+# See docs/deployment/air-gap.md for full deployment guide.
+# ==========================================================================
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # PostgreSQL Database
+  # ==========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: agentgate-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agentgate}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentgate}
+      POSTGRES_DB: ${POSTGRES_DB:-agentgate}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agentgate} -d ${POSTGRES_DB:-agentgate}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Redis (for rate limiting, queues, pub/sub)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: agentgate-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # ==========================================================================
+  # AgentGate Server (API) — Pre-built image, no build context
+  # ==========================================================================
+  server:
+    image: agentgate-server:latest
+    container_name: agentgate-server
+    environment:
+      # Server
+      PORT: 3000
+      HOST: 0.0.0.0
+      NODE_ENV: ${NODE_ENV:-production}
+
+      # Database (PostgreSQL)
+      DB_DIALECT: postgres
+      DATABASE_URL: postgresql://${POSTGRES_USER:-agentgate}:${POSTGRES_PASSWORD:-agentgate}@postgres:5432/${POSTGRES_DB:-agentgate}
+
+      # Redis
+      REDIS_URL: redis://redis:6379
+      RATE_LIMIT_BACKEND: redis
+
+      # Security
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?ADMIN_API_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+
+      # Decision links (set to internal hostname for air-gapped deployments)
+      DECISION_LINK_BASE_URL: ${DECISION_LINK_BASE_URL:-}
+      DASHBOARD_URL: ${DASHBOARD_URL:-}
+
+      # Rate Limiting
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      RATE_LIMIT_RPM: ${RATE_LIMIT_RPM:-60}
+
+      # Timeouts
+      REQUEST_TIMEOUT_SEC: ${REQUEST_TIMEOUT_SEC:-3600}
+      WEBHOOK_TIMEOUT_MS: ${WEBHOOK_TIMEOUT_MS:-5000}
+      WEBHOOK_MAX_RETRIES: ${WEBHOOK_MAX_RETRIES:-3}
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+
+      # Slack (optional — not available in air-gapped environments)
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+      SLACK_DEFAULT_CHANNEL: ${SLACK_DEFAULT_CHANNEL:-}
+
+      # Discord (optional — not available in air-gapped environments)
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_DEFAULT_CHANNEL: ${DISCORD_DEFAULT_CHANNEL:-}
+
+      # Email (optional)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+
+      # Channel routing
+      CHANNEL_ROUTES: ${CHANNEL_ROUTES:-[]}
+    ports:
+      - "${SERVER_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ==========================================================================
+  # AgentGate Dashboard (Web UI) — Pre-built image, no build context
+  # ==========================================================================
+  dashboard:
+    image: agentgate-dashboard:latest
+    container_name: agentgate-dashboard
+    ports:
+      - "${DASHBOARD_PORT:-8080}:80"
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

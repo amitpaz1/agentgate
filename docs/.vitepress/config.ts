@@ -34,6 +34,7 @@ export default defineConfig({
         text: 'Deployment',
         items: [
           { text: 'Docker', link: '/docker' },
+          { text: 'Air-Gap Deployment', link: '/deployment/air-gap' },
           { text: 'GitHub Action', link: '/github-action' },
         ]
       },
