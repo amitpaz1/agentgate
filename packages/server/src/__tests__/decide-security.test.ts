@@ -59,6 +59,7 @@ afterAll(() => {
 // Mock dependencies
 vi.mock("../db/index.js", () => ({
   db,
+  getDb: () => db,
   approvalRequests: schema.approvalRequests,
   decisionTokens: schema.decisionTokens,
 }));

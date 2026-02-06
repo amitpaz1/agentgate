@@ -2,7 +2,7 @@
 
 import { Hono } from "hono";
 import { html } from "hono/html";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getDb, approvalRequests, decisionTokens } from "../db/index.js";
 import { logAuditEvent } from "../lib/audit.js";
 import { deliverWebhook } from "../lib/webhook.js";
@@ -175,55 +175,12 @@ decideRouter.get("/:token", async (c) => {
     );
   }
 
-  // Find the associated request
-  const requestResult = await getDb()
-    .select()
-    .from(approvalRequests)
-    .where(eq(approvalRequests.id, tokenRecord.requestId))
-    .limit(1);
-
-  if (requestResult.length === 0) {
-    return c.html(
-      htmlResponse(
-        "Request Not Found",
-        "The associated approval request could not be found.",
-        false
-      ),
-      404
-    );
-  }
-
-  const request = requestResult[0]!;
-
-  // Check if request is still pending
-  if (request.status !== "pending") {
-    return c.html(
-      htmlResponse(
-        "Already Decided",
-        `This request has already been ${request.status}.`,
-        false,
-        {
-          Status: request.status,
-          "Decided by": request.decidedBy || "Unknown",
-          "Decided at": request.decidedAt?.toISOString() || "Unknown",
-        }
-      ),
-      400
-    );
-  }
-
   // Determine the decision from the token action
   const decision = tokenRecord.action === "approve" ? "approved" : "denied";
   const decidedBy = "token";
 
-  // Mark token as used
-  await getDb()
-    .update(decisionTokens)
-    .set({ usedAt: now })
-    .where(eq(decisionTokens.id, tokenRecord.id));
-
-  // Update the request
-  await getDb()
+  // Atomic conditional update: only update if request exists AND status is still 'pending'
+  const result = await getDb()
     .update(approvalRequests)
     .set({
       status: decision,
@@ -232,11 +189,57 @@ decideRouter.get("/:token", async (c) => {
       decisionReason: `Decision made via one-click ${tokenRecord.action} link`,
       updatedAt: now,
     })
-    .where(eq(approvalRequests.id, request.id));
+    .where(and(
+      eq(approvalRequests.id, tokenRecord.requestId),
+      eq(approvalRequests.status, 'pending')
+    ))
+    .returning();
+
+  if (result.length === 0) {
+    // Re-read to determine error type: not found vs already decided
+    const current = await getDb()
+      .select()
+      .from(approvalRequests)
+      .where(eq(approvalRequests.id, tokenRecord.requestId))
+      .limit(1);
+
+    if (current.length === 0) {
+      return c.html(
+        htmlResponse(
+          "Request Not Found",
+          "The associated approval request could not be found.",
+          false
+        ),
+        404
+      );
+    }
+
+    return c.html(
+      htmlResponse(
+        "Already Decided",
+        `This request has already been ${current[0]!.status}.`,
+        false,
+        {
+          Status: current[0]!.status,
+          "Decided by": current[0]!.decidedBy || "Unknown",
+          "Decided at": current[0]!.decidedAt?.toISOString() || "Unknown",
+        }
+      ),
+      409
+    );
+  }
+
+  const updatedRequest = result[0]!;
+
+  // Mark token as used
+  await getDb()
+    .update(decisionTokens)
+    .set({ usedAt: now })
+    .where(eq(decisionTokens.id, tokenRecord.id));
 
   // Log audit event
   await logAuditEvent(
-    request.id,
+    updatedRequest.id,
     decision === "approved" ? "approved" : "denied",
     decidedBy,
     {
@@ -245,15 +248,6 @@ decideRouter.get("/:token", async (c) => {
       automatic: false,
     }
   );
-
-  // Fetch updated record for webhook
-  const updated = await getDb()
-    .select()
-    .from(approvalRequests)
-    .where(eq(approvalRequests.id, request.id))
-    .limit(1);
-
-  const updatedRequest = updated[0]!;
 
   // Deliver webhook
   await deliverWebhook(`request.${decision}`, {
@@ -281,8 +275,8 @@ decideRouter.get("/:token", async (c) => {
       `The request has been successfully ${actionVerb}.`,
       decision === "approved",
       {
-        "Request ID": request.id,
-        Action: request.action,
+        "Request ID": updatedRequest.id,
+        Action: updatedRequest.action,
         "Decided at": now.toISOString(),
       }
     )

@@ -406,25 +406,6 @@ requestsRouter.get("/", async (c) => {
 requestsRouter.post("/:id/decide", async (c) => {
   const { id } = c.req.param();
 
-  // Check if request exists and is pending
-  const existing = await getDb()
-    .select()
-    .from(approvalRequests)
-    .where(eq(approvalRequests.id, id))
-    .limit(1);
-
-  if (existing.length === 0) {
-    return c.json({ error: "Request not found" }, 404);
-  }
-
-  const existingRequest = existing[0]!;
-  if (existingRequest.status !== "pending") {
-    return c.json(
-      { error: `Request is not pending (current status: ${existingRequest.status})` },
-      400
-    );
-  }
-
   const body = await c.req.json();
   const validation = validateDecisionBody(body);
 
@@ -435,8 +416,8 @@ requestsRouter.post("/:id/decide", async (c) => {
   const { decision, reason, decidedBy } = validation.data!;
   const now = new Date();
 
-  // Update the request
-  await getDb()
+  // Atomic conditional update: only update if status is still 'pending'
+  const result = await getDb()
     .update(approvalRequests)
     .set({
       status: decision,
@@ -445,7 +426,30 @@ requestsRouter.post("/:id/decide", async (c) => {
       decisionReason: reason || null,
       updatedAt: now,
     })
-    .where(eq(approvalRequests.id, id));
+    .where(and(
+      eq(approvalRequests.id, id),
+      eq(approvalRequests.status, 'pending')
+    ))
+    .returning();
+
+  if (result.length === 0) {
+    // Re-read to determine error type: not found vs already decided
+    const current = await getDb()
+      .select()
+      .from(approvalRequests)
+      .where(eq(approvalRequests.id, id))
+      .limit(1);
+
+    if (current.length === 0) {
+      return c.json({ error: "Request not found" }, 404);
+    }
+    return c.json(
+      { error: `Request already ${current[0]!.status}` },
+      409
+    );
+  }
+
+  const updatedRow = result[0]!;
 
   // Log audit event
   await logAuditEvent(
@@ -455,25 +459,18 @@ requestsRouter.post("/:id/decide", async (c) => {
     { reason, automatic: false }
   );
 
-  // Fetch updated record
-  const updated = await getDb()
-    .select()
-    .from(approvalRequests)
-    .where(eq(approvalRequests.id, id))
-    .limit(1);
-
-  const updatedRequest = formatRequest(updated[0]!);
+  const updatedRequest = formatRequest(updatedRow);
 
   // Deliver webhook for manual decision
   await deliverWebhook(`request.${decision}`, { request: updatedRequest });
 
   // Emit decided event
-  const decisionTimeMs = now.getTime() - existingRequest.createdAt.getTime();
+  const decisionTimeMs = now.getTime() - updatedRow.createdAt.getTime();
   const decidedEvent: RequestDecidedEvent = {
     ...createBaseEvent(EventNames.REQUEST_DECIDED, "server"),
     payload: {
       requestId: id,
-      action: existingRequest.action,
+      action: updatedRow.action,
       status: decision,
       decidedBy,
       decidedByType: "human",
