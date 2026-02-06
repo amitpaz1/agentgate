@@ -667,6 +667,10 @@ agentgate/
 └── package.json        # Monorepo root
 ```
 
+## See Also
+
+**[FormBridge](https://github.com/amitpaz1/formbridge)** — Mixed-mode forms for AI agents and humans. If AgentGate handles *action approval*, FormBridge handles *data collection*. Together they cover the full spectrum of human-AI collaboration: agents gather data with human help (FormBridge), then request permission to act on it (AgentGate).
+
 ## Contributing
 
 Contributions are welcome! To get started:
