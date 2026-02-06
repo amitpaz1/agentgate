@@ -159,9 +159,10 @@ describe("createRateLimiter", () => {
     expect(limiter).toBeInstanceOf(InMemoryRateLimiter);
   });
 
-  it("should create InMemoryRateLimiter when redis backend has no URL", () => {
-    // Mock console.warn
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("should create InMemoryRateLimiter when redis backend has no URL", async () => {
+    // Mock the logger's warn method
+    const { getLogger } = await import("../lib/logger.js");
+    const warnSpy = vi.spyOn(getLogger(), "warn").mockImplementation(() => {});
     
     const limiter = createRateLimiter("redis");
     expect(limiter).toBeInstanceOf(InMemoryRateLimiter);

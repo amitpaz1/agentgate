@@ -1,21 +1,23 @@
 import { createApiKey } from './lib/api-keys.js';
+import { getLogger } from './lib/logger.js';
 
 async function bootstrap() {
-  console.log('🚀 Bootstrapping AgentGate...\n');
+  const log = getLogger();
+  log.info('🚀 Bootstrapping AgentGate...');
 
   // Create initial admin API key
-  console.log('Creating admin API key...');
+  log.info('Creating admin API key...');
   const { key } = await createApiKey('Admin (bootstrap)', ['admin', 'request:create', 'request:read', 'request:decide']);
   
-  console.log('\n✅ Bootstrap complete!\n');
-  console.log('Admin API Key (save this - shown once only):');
-  console.log('━'.repeat(60));
-  console.log(key);
-  console.log('━'.repeat(60));
-  console.log('\nSet this in your environment:');
-  console.log(`export AGENTGATE_API_KEY="${key}"`);
-  console.log('\nOr add to .env file:');
-  console.log(`AGENTGATE_API_KEY=${key}`);
+  log.info('✅ Bootstrap complete!');
+  log.info('Admin API Key (save this - shown once only):');
+  log.info('━'.repeat(60));
+  log.info(key);
+  log.info('━'.repeat(60));
+  log.info('Set this in your environment:');
+  log.info(`export AGENTGATE_API_KEY="${key}"`);
+  log.info('Or add to .env file:');
+  log.info(`AGENTGATE_API_KEY=${key}`);
 }
 
-bootstrap().catch(console.error);
+bootstrap().catch((err) => getLogger().error({ err }, 'Bootstrap failed'));

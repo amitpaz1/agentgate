@@ -25,6 +25,7 @@ import { SlackAdapter } from "./adapters/slack.js";
 import { DiscordAdapter } from "./adapters/discord.js";
 import { WebhookAdapter } from "./adapters/webhook.js";
 import { getConfig } from "../../config.js";
+import { getLogger } from "../logger.js";
 
 /**
  * Notification Dispatcher
@@ -233,7 +234,7 @@ export class NotificationDispatcher {
         results.push(result);
 
         if (!result.success && this.options.logLevel !== "error") {
-          console.warn(
+          getLogger().warn(
             `[NotificationDispatcher] Failed to deliver to ${route.channel}:${route.target}: ${result.error}`
           );
         }

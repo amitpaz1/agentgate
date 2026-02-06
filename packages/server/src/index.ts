@@ -15,25 +15,27 @@ import { getConfig, validateProductionConfig } from "./config.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
 import { initDatabase, runMigrations, closeDatabase } from "./db/index.js";
 import { resetRateLimiter } from "./lib/rate-limiter/index.js";
+import { initLogger, getLogger } from "./lib/logger.js";
 
 // Create Hono app with typed variables
 const app = new Hono<{ Variables: AuthVariables }>();
 
-// Load config
+// Load config and initialize logger
 const config = getConfig();
+const log = initLogger();
 
 // Enforce production security requirements
 if (config.isProduction) {
   const warnings = validateProductionConfig(config);
   const criticalWarnings = warnings.filter(w => w.includes('ADMIN_API_KEY'));
   if (criticalWarnings.length > 0) {
-    console.error('FATAL: Production security requirements not met:');
-    criticalWarnings.forEach(w => console.error(`  - ${w}`));
-    console.error('Set ADMIN_API_KEY environment variable (min 16 characters) to start in production mode.');
+    log.fatal('Production security requirements not met');
+    criticalWarnings.forEach(w => log.fatal(`  - ${w}`));
+    log.fatal('Set ADMIN_API_KEY environment variable (min 16 characters) to start in production mode.');
     process.exit(1);
   }
   // Log non-critical warnings
-  warnings.filter(w => !w.includes('ADMIN_API_KEY')).forEach(w => console.warn(`Warning: ${w}`));
+  warnings.filter(w => !w.includes('ADMIN_API_KEY')).forEach(w => log.warn(w));
 }
 
 // Middleware
@@ -84,7 +86,7 @@ app.route("/api/audit", auditRouter);
 // Global error handler
 app.onError((err, c) => {
   // Always log full error server-side
-  console.error(`Error: ${err.message}`, err.stack);
+  getLogger().error({ err }, `Error: ${err.message}`);
 
   // Only expose error details in development
   const isDev = process.env.NODE_ENV !== "production";
@@ -118,19 +120,19 @@ async function main() {
   // For SQLite, the sync `db` export still works, but all routes now use getDb()
   // which returns the same initialized instance.
   await initDatabase();
-  console.log("Database initialized.");
+  getLogger().info("Database initialized.");
 
   await runMigrations();
-  console.log("Database migrations applied.");
+  getLogger().info("Database migrations applied.");
 
-  console.log(`Starting AgentGate server on port ${port}...`);
+  getLogger().info(`Starting AgentGate server on port ${port}...`);
 
   const server = serve({
     fetch: app.fetch,
     port,
   });
 
-  console.log(`AgentGate server running at http://localhost:${port}`);
+  getLogger().info(`AgentGate server running at http://localhost:${port}`);
 
   // --- Graceful shutdown ---
   let shuttingDown = false;
@@ -139,27 +141,27 @@ async function main() {
     if (shuttingDown) return; // Prevent double-shutdown
     shuttingDown = true;
 
-    console.log(`\n${signal} received. Starting graceful shutdown...`);
+    getLogger().info(`${signal} received. Starting graceful shutdown...`);
 
     server.close(() => {
-      console.log('HTTP server closed.');
+      getLogger().info('HTTP server closed.');
     });
 
     try {
       await resetRateLimiter();
-      console.log('Rate limiter cleaned up.');
+      getLogger().info('Rate limiter cleaned up.');
     } catch (err) {
-      console.error('Error cleaning up rate limiter:', err);
+      getLogger().error({ err }, 'Error cleaning up rate limiter');
     }
 
     try {
       await closeDatabase();
-      console.log('Database connections closed.');
+      getLogger().info('Database connections closed.');
     } catch (err) {
-      console.error('Error closing database:', err);
+      getLogger().error({ err }, 'Error closing database');
     }
 
-    console.log('Graceful shutdown complete.');
+    getLogger().info('Graceful shutdown complete.');
     process.exit(0);
   }
 
@@ -168,14 +170,14 @@ async function main() {
 
   // Safety net: force exit after 10 seconds if shutdown stalls
   const forceExitTimeout = setTimeout(() => {
-    console.error('Forced shutdown after timeout.');
+    getLogger().error('Forced shutdown after timeout.');
     process.exit(1);
   }, 10_000);
   forceExitTimeout.unref();
 }
 
 main().catch((err) => {
-  console.error("Failed to start server:", err);
+  getLogger().fatal({ err }, "Failed to start server");
   process.exit(1);
 });
 

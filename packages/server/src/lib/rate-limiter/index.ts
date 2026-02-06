@@ -7,6 +7,7 @@ export { RedisRateLimiter } from "./redis.js";
 import type { RateLimiter, RateLimiterBackend } from "./types.js";
 import { InMemoryRateLimiter } from "./memory.js";
 import { RedisRateLimiter } from "./redis.js";
+import { getLogger } from "../logger.js";
 
 // Singleton rate limiter instance
 let rateLimiterInstance: RateLimiter | null = null;
@@ -20,7 +21,7 @@ export function createRateLimiter(
 ): RateLimiter {
   if (backend === "redis") {
     if (!redisUrl) {
-      console.warn(
+      getLogger().warn(
         "[RateLimiter] REDIS_URL not set, falling back to in-memory backend"
       );
       return new InMemoryRateLimiter();

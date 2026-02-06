@@ -3,6 +3,7 @@
 import Redis from "ioredis";
 import type { RateLimiter, RateLimitResult } from "./types.js";
 import { InMemoryRateLimiter } from "./memory.js";
+import { getLogger } from "../logger.js";
 
 // Window size in milliseconds (1 minute)
 const WINDOW_MS = 60 * 1000;
@@ -39,26 +40,26 @@ export class RedisRateLimiter implements RateLimiter {
 
       // Set up error handling
       this.redis.on("error", (err) => {
-        console.error("[RateLimiter] Redis error:", err.message);
+        getLogger().error({ err: err.message }, "[RateLimiter] Redis error");
         this.useFallback = true;
       });
 
       this.redis.on("connect", () => {
-        console.log("[RateLimiter] Redis connected");
+        getLogger().info("[RateLimiter] Redis connected");
         this.useFallback = false;
       });
 
       this.redis.on("reconnecting", () => {
-        console.log("[RateLimiter] Redis reconnecting...");
+        getLogger().info("[RateLimiter] Redis reconnecting...");
       });
 
       // Try to connect
       await this.redis.connect();
       this.useFallback = false;
     } catch (err) {
-      console.error(
-        "[RateLimiter] Redis connection failed, using fallback:",
-        (err as Error).message
+      getLogger().error(
+        { err: (err as Error).message },
+        "[RateLimiter] Redis connection failed, using fallback"
       );
       this.useFallback = true;
     }
@@ -150,7 +151,7 @@ export class RedisRateLimiter implements RateLimiter {
         resetMs,
       };
     } catch (err) {
-      console.error("[RateLimiter] Redis error, falling back:", (err as Error).message);
+      getLogger().error({ err: (err as Error).message }, "[RateLimiter] Redis error, falling back");
       this.useFallback = true;
       return this.fallback.checkLimit(key, limit);
     }
@@ -166,7 +167,7 @@ export class RedisRateLimiter implements RateLimiter {
       try {
         await this.redis.del(`${KEY_PREFIX}${key}`);
       } catch (err) {
-        console.error("[RateLimiter] Redis reset error:", (err as Error).message);
+        getLogger().error({ err: (err as Error).message }, "[RateLimiter] Redis reset error");
       }
     }
   }
@@ -185,7 +186,7 @@ export class RedisRateLimiter implements RateLimiter {
           await this.redis.del(...keys);
         }
       } catch (err) {
-        console.error("[RateLimiter] Redis clearAll error:", (err as Error).message);
+        getLogger().error({ err: (err as Error).message }, "[RateLimiter] Redis clearAll error");
       }
     }
   }
