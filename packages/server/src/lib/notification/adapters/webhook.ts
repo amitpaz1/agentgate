@@ -9,6 +9,7 @@ import crypto from "crypto";
 import type { AgentGateEvent } from "@agentgate/core";
 import type { NotificationChannelAdapter, NotificationResult } from "../types.js";
 import { getConfig } from "../../../config.js";
+import { validateWebhookUrl } from "../../url-validator.js";
 
 /**
  * Sign a payload with HMAC-SHA256
@@ -54,15 +55,14 @@ export class WebhookAdapter implements NotificationChannelAdapter {
     const config = getConfig();
     const timestamp = Date.now();
 
-    // Validate URL
-    try {
-      new URL(target);
-    } catch {
+    // Validate URL and SSRF protection
+    const validation = await validateWebhookUrl(target);
+    if (!validation.valid) {
       return {
         success: false,
         channel: this.type,
         target,
-        error: "Invalid webhook URL",
+        error: `SSRF blocked: ${validation.error}`,
         timestamp,
       };
     }

@@ -13,6 +13,14 @@ import {
 } from "@agentgate/core";
 import { setConfig, resetConfig, type Config } from "../config.js";
 
+// Mock the URL validator module for webhook SSRF protection
+vi.mock("../lib/url-validator.js", () => ({
+  validateWebhookUrl: vi.fn().mockResolvedValue({ valid: true, resolvedIP: "93.184.216.34" }),
+}));
+
+import { validateWebhookUrl } from "../lib/url-validator.js";
+const mockValidateWebhookUrl = vi.mocked(validateWebhookUrl);
+
 // Mock config for tests
 const mockConfig: Config = {
   port: 3000,
@@ -645,9 +653,10 @@ describe("Notification Adapters", () => {
         },
       };
 
+      mockValidateWebhookUrl.mockResolvedValue({ valid: false, error: "Invalid URL format" });
       const result = await adapter.send("not-a-valid-url", event);
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Invalid webhook URL");
+      expect(result.error).toContain("SSRF blocked");
     });
 
     it("should build correct payload structure", async () => {

@@ -7,6 +7,14 @@ import {
 } from "../lib/notification/adapters/webhook.js";
 import { resetConfig, setConfig, parseConfig } from "../config.js";
 
+// Mock the URL validator module
+vi.mock("../lib/url-validator.js", () => ({
+  validateWebhookUrl: vi.fn(),
+}));
+
+import { validateWebhookUrl } from "../lib/url-validator.js";
+const mockValidateWebhookUrl = vi.mocked(validateWebhookUrl);
+
 function createTestEvent(type: string = "request.created", overrides: Partial<any> = {}): AgentGateEvent {
   return {
     eventId: "evt-123",
@@ -26,6 +34,8 @@ describe("Webhook Adapter Unit Tests", () => {
     resetConfig();
     setConfig(parseConfig({}));
     vi.restoreAllMocks();
+    // Default: all URLs pass SSRF validation
+    mockValidateWebhookUrl.mockResolvedValue({ valid: true, resolvedIP: "93.184.216.34" });
   });
 
   afterEach(() => {
@@ -167,23 +177,25 @@ describe("Webhook Adapter Unit Tests", () => {
 
     describe("send - URL validation", () => {
       it("should reject invalid URL", async () => {
+        mockValidateWebhookUrl.mockResolvedValue({ valid: false, error: "Invalid URL format" });
         const adapter = new WebhookAdapter();
         const event = createTestEvent();
         
         const result = await adapter.send("not-a-url", event);
         
         expect(result.success).toBe(false);
-        expect(result.error).toBe("Invalid webhook URL");
+        expect(result.error).toBe("SSRF blocked: Invalid URL format");
       });
 
       it("should reject URL without protocol", async () => {
+        mockValidateWebhookUrl.mockResolvedValue({ valid: false, error: "Invalid URL format" });
         const adapter = new WebhookAdapter();
         const event = createTestEvent();
         
         const result = await adapter.send("example.com/webhook", event);
         
         expect(result.success).toBe(false);
-        expect(result.error).toBe("Invalid webhook URL");
+        expect(result.error).toBe("SSRF blocked: Invalid URL format");
       });
 
       it("should accept valid HTTP URL", async () => {
@@ -444,6 +456,28 @@ describe("Webhook Adapter Unit Tests", () => {
         
         expect(result.success).toBe(false);
         expect(result.error).toBe("Request timed out");
+      });
+
+      it("should block SSRF attempts to cloud metadata", async () => {
+        mockValidateWebhookUrl.mockResolvedValue({ valid: false, error: "Cloud metadata endpoints are not allowed" });
+        const adapter = new WebhookAdapter();
+        const event = createTestEvent();
+        
+        const result = await adapter.send("http://169.254.169.254/latest/meta-data/", event);
+        
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("SSRF blocked: Cloud metadata endpoints are not allowed");
+      });
+
+      it("should block SSRF attempts to private IPs", async () => {
+        mockValidateWebhookUrl.mockResolvedValue({ valid: false, error: "Private IP addresses are not allowed" });
+        const adapter = new WebhookAdapter();
+        const event = createTestEvent();
+        
+        const result = await adapter.send("http://192.168.1.1/admin", event);
+        
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("SSRF blocked: Private IP addresses are not allowed");
       });
     });
 
