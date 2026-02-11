@@ -50,3 +50,7 @@ temp/
 .worktrees/
 .security-key
 logs/security/
+
+# BMAD planning artifacts
+_bmad/
+_bmad-output/
