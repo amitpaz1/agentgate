@@ -2,10 +2,10 @@
 .git
 .gitignore
 
-# Dependencies (will be installed in Docker)
+# Dependencies (reinstalled in Docker)
 node_modules
 
-# Build artifacts
+# Build outputs (rebuilt in Docker)
 **/dist
 **/build
 
@@ -14,28 +14,49 @@ node_modules
 **/*.test.ts
 **/*.spec.ts
 coverage
+.nyc_output
 
-# Development files
+# Environment files (secrets!)
 .env
 .env.*
 !.env.example
-*.md
-!README.md
-LICENSE
 
-# IDE
+# IDE / Editor
 .vscode
 .idea
 *.swp
 *.swo
+*~
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# BMAD artifacts
-_bmad*
+# BMAD / project management
+_bmad
+_bmad-output
 
-# Data
-data/
+# Data / databases
+data
 *.db
+*.sqlite
+
+# Documentation (not needed in image)
+docs
+specs
+tasks
+*.md
+!README.md
+
+# Demo / examples
+demo
+chrome-extension
+action
+
+# Docker files (avoid recursive context)
+docker-compose*.yml
+Dockerfile
+
+# Misc
+.eslintcache
+.turbo

@@ -21,12 +21,11 @@ export const approvalRequests = pgTable("approval_requests", {
   decidedBy: text("decided_by"),
   decisionReason: text("decision_reason"),
   expiresAt: timestamp("expires_at", { mode: "date" }),
-});
-
-// Indexes for approval_requests
-export const idxRequestsStatus = index("idx_requests_status").on(approvalRequests.status);
-export const idxRequestsAction = index("idx_requests_action").on(approvalRequests.action);
-export const idxRequestsCreatedAt = index("idx_requests_created_at").on(approvalRequests.createdAt);
+}, (table) => ({
+  idxRequestsStatus: index("idx_requests_status").on(table.status),
+  idxRequestsAction: index("idx_requests_action").on(table.action),
+  idxRequestsCreatedAt: index("idx_requests_created_at").on(table.createdAt),
+}));
 
 // Audit logs table
 export const auditLogs = pgTable("audit_logs", {
@@ -40,10 +39,9 @@ export const auditLogs = pgTable("audit_logs", {
   actor: text("actor").notNull(),
   details: text("details"), // JSON stringified
   createdAt: timestamp("created_at", { mode: "date" }).notNull(),
-});
-
-// Index for audit_logs
-export const idxAuditRequestId = index("idx_audit_request_id").on(auditLogs.requestId);
+}, (table) => ({
+  idxAuditRequestId: index("idx_audit_request_id").on(table.requestId),
+}));
 
 // Policies table
 export const policies = pgTable("policies", {
@@ -65,10 +63,9 @@ export const apiKeys = pgTable("api_keys", {
   lastUsedAt: integer("last_used_at"), // unix timestamp, nullable
   revokedAt: integer("revoked_at"), // unix timestamp, nullable
   rateLimit: integer("rate_limit"), // requests per minute, null = unlimited
-});
-
-// Index for api_keys
-export const idxApiKeysHash = index("idx_api_keys_hash").on(apiKeys.keyHash);
+}, (table) => ({
+  idxApiKeysHash: index("idx_api_keys_hash").on(table.keyHash),
+}));
 
 // Webhooks table
 export const webhooks = pgTable("webhooks", {
@@ -95,11 +92,10 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   lastAttemptAt: integer("last_attempt_at"), // unix timestamp, nullable
   responseCode: integer("response_code"), // nullable
   responseBody: text("response_body"), // nullable
-});
-
-// Indexes for webhook_deliveries
-export const idxDeliveriesWebhookId = index("idx_deliveries_webhook_id").on(webhookDeliveries.webhookId);
-export const idxDeliveriesStatus = index("idx_deliveries_status").on(webhookDeliveries.status);
+}, (table) => ({
+  idxDeliveriesWebhookId: index("idx_deliveries_webhook_id").on(table.webhookId),
+  idxDeliveriesStatus: index("idx_deliveries_status").on(table.status),
+}));
 
 // Decision tokens table for one-click approve/deny links
 export const decisionTokens = pgTable("decision_tokens", {
@@ -114,10 +110,9 @@ export const decisionTokens = pgTable("decision_tokens", {
   expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
   usedAt: timestamp("used_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).notNull(),
-});
-
-// Index for decision_tokens
-export const idxTokensRequestId = index("idx_tokens_request_id").on(decisionTokens.requestId);
+}, (table) => ({
+  idxTokensRequestId: index("idx_tokens_request_id").on(table.requestId),
+}));
 
 // Type exports
 export type ApprovalRequest = typeof approvalRequests.$inferSelect;
