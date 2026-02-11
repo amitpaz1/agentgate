@@ -14,7 +14,7 @@ import { authMiddleware, type AuthVariables } from "./middleware/auth.js";
 import { getConfig, validateProductionConfig } from "./config.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
 import { initDatabase, runMigrations, closeDatabase, getDb, approvalRequests } from "./db/index.js";
-import { resetRateLimiter } from "./lib/rate-limiter/index.js";
+import { getRateLimiter, resetRateLimiter } from "./lib/rate-limiter/index.js";
 import { initLogger, getLogger } from "./lib/logger.js";
 import { startRetryScanner, encryptExistingSecrets } from "./lib/webhook.js";
 import { startLastUsedFlusher, stopLastUsedFlusher } from "./lib/api-keys.js";
@@ -86,6 +86,25 @@ app.get("/health", async (c) => {
   } catch (err) {
     checks.database = { status: "unhealthy", error: String(err) };
     overallHealthy = false;
+  }
+
+  // Check Redis (only if using Redis backend)
+  const healthConfig = getConfig();
+  if (healthConfig.rateLimitBackend === "redis") {
+    try {
+      const start = Date.now();
+      const limiter = getRateLimiter();
+      const ok = await limiter.ping();
+      if (ok) {
+        checks.redis = { status: "healthy", latencyMs: Date.now() - start };
+      } else {
+        checks.redis = { status: "unhealthy", error: "Redis ping failed" };
+        overallHealthy = false;
+      }
+    } catch (err) {
+      checks.redis = { status: "unhealthy", error: String(err) };
+      overallHealthy = false;
+    }
   }
 
   const status = overallHealthy ? "ok" : "degraded";

@@ -37,6 +37,12 @@ export interface RateLimiter {
    * Gracefully shut down the rate limiter
    */
   shutdown(): Promise<void>;
+
+  /**
+   * Ping the underlying store to verify connectivity
+   * Returns true if healthy, throws or returns false otherwise
+   */
+  ping(): Promise<boolean>;
 }
 
 /**

@@ -214,4 +214,12 @@ export class RedisRateLimiter implements RateLimiter {
   isRedisConnected(): boolean {
     return !this.useFallback && this.redis !== null;
   }
+
+  async ping(): Promise<boolean> {
+    if (!this.redis || this.useFallback) {
+      return false;
+    }
+    const result = await this.redis.ping();
+    return result === "PONG";
+  }
 }

@@ -85,7 +85,7 @@ export const toolDefinitions = [
           description: 'Your decision',
         },
         reason: { type: 'string', description: 'Reason for decision (optional)' },
-        decidedBy: { type: 'string', description: 'Who is making this decision (default: "mcp-user")' },
+        decidedBy: { type: 'string', description: 'Who is making this decision (default: "mcp:user")' },
       },
       required: ['id', 'decision'],
     },
@@ -159,6 +159,29 @@ export async function handleList(
   return apiCall(config, 'GET', path);
 }
 
+/** Known decidedBy namespace prefixes */
+const KNOWN_NAMESPACES = ['slack', 'discord', 'dashboard', 'mcp', 'policy', 'api', 'system'];
+
+/**
+ * Validate and normalize a decidedBy value to namespace:identifier format.
+ * If already properly namespaced, returns as-is. Otherwise prefixes with `mcp:`.
+ */
+export function normalizeDecidedBy(value: string | undefined): string {
+  if (!value) return 'mcp:user';
+
+  // Check if it matches namespace:identifier format
+  const colonIndex = value.indexOf(':');
+  if (colonIndex > 0) {
+    const prefix = value.slice(0, colonIndex);
+    if (KNOWN_NAMESPACES.includes(prefix)) {
+      return value;
+    }
+  }
+
+  // Not properly namespaced — prefix with mcp:
+  return `mcp:${value}`;
+}
+
 /**
  * Handle agentgate_decide tool
  */
@@ -169,7 +192,7 @@ export async function handleDecide(
   return apiCall(config, 'POST', `/api/requests/${args.id}/decide`, {
     decision: args.decision,
     reason: args.reason,
-    decidedBy: args.decidedBy ?? 'mcp-user',
+    decidedBy: normalizeDecidedBy(args.decidedBy),
   });
 }
 

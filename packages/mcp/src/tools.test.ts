@@ -5,6 +5,7 @@ import {
   formatError,
   handleToolCall,
   toolDefinitions,
+  normalizeDecidedBy,
 } from './tools.js';
 import type { ApiConfig } from './types.js';
 
@@ -108,6 +109,31 @@ describe('toolDefinitions', () => {
     expect(tool).toBeDefined();
     expect(tool!.inputSchema.required).toContain('id');
     expect(tool!.inputSchema.required).toContain('decision');
+  });
+});
+
+describe('normalizeDecidedBy', () => {
+  it('returns mcp:user for undefined', () => {
+    expect(normalizeDecidedBy(undefined)).toBe('mcp:user');
+  });
+
+  it('returns mcp:user for empty string', () => {
+    expect(normalizeDecidedBy('')).toBe('mcp:user');
+  });
+
+  it('preserves valid namespaced values', () => {
+    expect(normalizeDecidedBy('mcp:custom-agent')).toBe('mcp:custom-agent');
+    expect(normalizeDecidedBy('slack:U12345')).toBe('slack:U12345');
+    expect(normalizeDecidedBy('dashboard:admin')).toBe('dashboard:admin');
+  });
+
+  it('prefixes with mcp: when no known namespace', () => {
+    expect(normalizeDecidedBy('some-user')).toBe('mcp:some-user');
+    expect(normalizeDecidedBy('admin')).toBe('mcp:admin');
+  });
+
+  it('prefixes with mcp: when namespace is unknown', () => {
+    expect(normalizeDecidedBy('unknown:user')).toBe('mcp:unknown:user');
   });
 });
 
@@ -221,6 +247,49 @@ describe('handleToolCall', () => {
       })
     );
     expect(result.isError).toBeUndefined();
+  });
+
+  it('uses mcp:user as default decidedBy for agentgate_decide', async () => {
+    const responseData = { id: 'req-123', status: 'approved' };
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(responseData),
+    });
+
+    await handleToolCall(config, 'agentgate_decide', {
+      id: 'req-123',
+      decision: 'approved',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: expect.stringContaining('"decidedBy":"mcp:user"'),
+      })
+    );
+  });
+
+  it('preserves custom decidedBy when provided for agentgate_decide', async () => {
+    const responseData = { id: 'req-123', status: 'approved' };
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(responseData),
+    });
+
+    await handleToolCall(config, 'agentgate_decide', {
+      id: 'req-123',
+      decision: 'approved',
+      decidedBy: 'mcp:custom-agent',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: expect.stringContaining('"decidedBy":"mcp:custom-agent"'),
+      })
+    );
   });
 
   it('handles API errors gracefully', async () => {

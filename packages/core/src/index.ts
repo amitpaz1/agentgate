@@ -7,6 +7,8 @@ export type {
   ApprovalStatus,
   ApprovalUrgency,
   DecisionType,
+  DecidedByNamespace,
+  DecidedByValue,
   ApprovalRequest,
   MatcherValue,
   PolicyRule,

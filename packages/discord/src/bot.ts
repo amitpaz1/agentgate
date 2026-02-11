@@ -124,7 +124,7 @@ export function createDiscordBot(options: DiscordBotOptions): DiscordBot {
         headers: decideHeaders,
         body: JSON.stringify({
           decision,
-          decidedBy: userId,
+          decidedBy: `discord:${userId}`,
         }),
       });
 

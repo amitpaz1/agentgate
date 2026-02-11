@@ -115,4 +115,8 @@ export class InMemoryRateLimiter implements RateLimiter {
       this.cleanupInterval = null;
     }
   }
+
+  async ping(): Promise<boolean> {
+    return true; // In-memory is always available
+  }
 }

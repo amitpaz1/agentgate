@@ -47,7 +47,9 @@ export default function RequestDetail() {
     setDecisionError(null);
     
     try {
-      const updated = await api.decide(id, decision, 'dashboard-user', reason || undefined);
+      // TODO: Dashboard currently uses single API-key auth with no user identity.
+      // When per-user auth is added, replace 'dashboard:admin' with `dashboard:${user.id}`.
+      const updated = await api.decide(id, decision, 'dashboard:admin', reason || undefined);
       setRequest(updated);
       
       // Refresh audit log

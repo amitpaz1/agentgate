@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { api, type ApprovalRequest } from '../api';
+import { api, type ApprovalRequest, type ApprovalStatus } from '../api';
 import { StatusBadge } from '../components/StatusBadge';
 
-type StatusFilter = 'all' | 'pending' | 'approved' | 'denied' | 'expired';
+type StatusFilter = 'all' | ApprovalStatus;
 
 export default function RequestList() {
   const [searchParams, setSearchParams] = useSearchParams();

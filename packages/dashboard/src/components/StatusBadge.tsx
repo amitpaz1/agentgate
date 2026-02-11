@@ -1,5 +1,7 @@
+import type { ApprovalStatus } from '@agentgate/core';
+
 interface StatusBadgeProps {
-  status: 'pending' | 'approved' | 'denied' | 'expired';
+  status: ApprovalStatus;
 }
 
 const statusStyles = {

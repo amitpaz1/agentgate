@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { api, type AuditEntryWithRequest } from '../api';
+import { api, type AuditEntryWithRequest, type ApprovalStatus } from '../api';
 import { StatusBadge } from '../components/StatusBadge';
 
 const EVENT_TYPES = [
@@ -330,7 +330,7 @@ export default function AuditLog() {
                   </div>
                   <div className="col-span-2">
                     {entry.request?.status ? (
-                      <StatusBadge status={entry.request.status as 'pending' | 'approved' | 'denied' | 'expired'} />
+                      <StatusBadge status={entry.request.status as ApprovalStatus} />
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
@@ -383,7 +383,7 @@ export default function AuditLog() {
                   </div>
                   <div className="col-span-1">
                     {entry.request?.status ? (
-                      <StatusBadge status={entry.request.status as 'pending' | 'approved' | 'denied' | 'expired'} />
+                      <StatusBadge status={entry.request.status as ApprovalStatus} />
                     ) : (
                       <span className="text-gray-400 text-xs">-</span>
                     )}
@@ -414,7 +414,7 @@ export default function AuditLog() {
                     {entry.eventType.toUpperCase()}
                   </span>
                   {entry.request?.status && (
-                    <StatusBadge status={entry.request.status as 'pending' | 'approved' | 'denied' | 'expired'} />
+                    <StatusBadge status={entry.request.status as ApprovalStatus} />
                   )}
                 </div>
                 <h3 className="font-medium text-gray-900 mb-1">

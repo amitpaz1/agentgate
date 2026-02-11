@@ -1,15 +1,23 @@
 // API client for AgentGate server
 
+import type { ApprovalStatus, ApprovalUrgency } from '@agentgate/core';
+
+export type { ApprovalStatus, ApprovalUrgency };
+
 const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
 const STORAGE_KEY = 'agentgate_api_key';
 
+/**
+ * Serialized version of ApprovalRequest (JSON dates are strings, nulls instead of undefined).
+ * Core's ApprovalRequest uses Date objects; this interface represents the JSON-serialized form.
+ */
 export interface ApprovalRequest {
   id: string;
   action: string;
   params: Record<string, unknown>;
   context: Record<string, unknown>;
-  status: 'pending' | 'approved' | 'denied' | 'expired';
-  urgency: 'low' | 'normal' | 'high' | 'critical';
+  status: ApprovalStatus;
+  urgency: ApprovalUrgency;
   createdAt: string;
   updatedAt: string;
   decidedAt: string | null;

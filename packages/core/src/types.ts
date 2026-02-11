@@ -16,6 +16,17 @@ export type ApprovalUrgency = 'low' | 'normal' | 'high' | 'critical';
 export type DecisionType = 'auto_approve' | 'auto_deny' | 'route_to_human' | 'route_to_agent';
 
 /**
+ * Namespace prefix for decidedBy field.
+ * Format: `source:identifier` (e.g., "slack:U12345", "dashboard:admin", "mcp:user")
+ */
+export type DecidedByNamespace = 'slack' | 'discord' | 'dashboard' | 'mcp' | 'policy' | 'api' | 'system';
+
+/**
+ * Fully qualified decidedBy value: `namespace:identifier`
+ */
+export type DecidedByValue = `${DecidedByNamespace}:${string}`;
+
+/**
  * An approval request from an agent
  */
 export interface ApprovalRequest {
@@ -37,8 +48,8 @@ export interface ApprovalRequest {
   updatedAt: Date;
   /** When a decision was made (if any) */
   decidedAt?: Date;
-  /** Who made the decision (user ID or agent ID) */
-  decidedBy?: string;
+  /** Who made the decision — namespaced as `source:identifier` (e.g., "slack:U12345") */
+  decidedBy?: DecidedByValue;
   /** Reason provided for the decision */
   decisionReason?: string;
   /** When the request expires (if set) */
