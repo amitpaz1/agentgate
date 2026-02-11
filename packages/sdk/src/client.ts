@@ -1,6 +1,6 @@
 // @agentgate/sdk - AgentGate Client
 
-import type { ApprovalRequest, ApprovalUrgency } from '@agentgate/core';
+import type { ApprovalRequest, ApprovalUrgency, Policy, PolicyRule } from '@agentgate/core';
 import { AgentGateError, TimeoutError } from './errors.js';
 
 /**
@@ -37,6 +37,145 @@ export interface WaitOptions {
   timeout?: number;
   /** Poll interval in milliseconds (default: 2 seconds) */
   pollInterval?: number;
+}
+
+// ============================================================================
+// Policy Types
+// ============================================================================
+
+export interface PolicyCreateOptions {
+  name: string;
+  rules: PolicyRule[];
+  priority?: number;
+  enabled?: boolean;
+}
+
+export interface PolicyUpdateOptions {
+  name?: string;
+  rules?: PolicyRule[];
+  priority?: number;
+  enabled?: boolean;
+}
+
+// ============================================================================
+// Webhook Types
+// ============================================================================
+
+export interface Webhook {
+  id: string;
+  url: string;
+  events: string[];
+  createdAt: number;
+  enabled: boolean;
+}
+
+export interface WebhookWithDeliveries extends Webhook {
+  deliveries: WebhookDelivery[];
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhookId: string;
+  event: string;
+  payload: string;
+  responseStatus: number | null;
+  lastAttemptAt: number;
+  attempts: number;
+  success: number;
+}
+
+export interface WebhookCreateOptions {
+  url: string;
+  events: string[];
+  secret?: string;
+}
+
+export interface WebhookCreateResult extends Webhook {
+  secret: string;
+  message: string;
+}
+
+export interface WebhookUpdateOptions {
+  url?: string;
+  events?: string[];
+  enabled?: boolean;
+}
+
+export interface WebhookTestResult {
+  success: boolean;
+  status?: number;
+  message: string;
+}
+
+// ============================================================================
+// Audit Types
+// ============================================================================
+
+export interface AuditEntry {
+  id: string;
+  requestId: string;
+  eventType: string;
+  actor: string;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+  request: {
+    id: string;
+    action: string;
+    status: string;
+    urgency: string;
+  } | null;
+}
+
+export interface AuditListOptions {
+  action?: string;
+  status?: string;
+  eventType?: string;
+  actor?: string;
+  from?: string;
+  to?: string;
+  requestId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AuditListResult {
+  entries: AuditEntry[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
+
+// ============================================================================
+// API Key Types
+// ============================================================================
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  scopes: string[];
+  createdAt: number;
+  lastUsedAt: number | null;
+  revokedAt: number | null;
+  rateLimit: number | null;
+  active: boolean;
+}
+
+export interface ApiKeyCreateOptions {
+  name: string;
+  scopes: string[];
+  rateLimit?: number | null;
+}
+
+export interface ApiKeyCreateResult {
+  id: string;
+  key: string;
+  name: string;
+  scopes: string[];
+  rateLimit: number | null;
+  message: string;
 }
 
 /**
@@ -213,6 +352,112 @@ export class AgentGateClient {
 
     const data = await this.fetch<{ requests: Record<string, unknown>[]; pagination: unknown }>(path);
     return data.requests.map((item) => this.parseRequest(item));
+  }
+
+  // ==========================================================================
+  // Policy Methods
+  // ==========================================================================
+
+  async listPolicies(): Promise<Policy[]> {
+    const data = await this.fetch<{ policies: Policy[] }>('/api/policies');
+    return data.policies;
+  }
+
+  async getPolicy(id: string): Promise<Policy> {
+    return this.fetch<Policy>(`/api/policies/${id}`);
+  }
+
+  async createPolicy(opts: PolicyCreateOptions): Promise<Policy> {
+    return this.fetch<Policy>('/api/policies', {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    });
+  }
+
+  /**
+   * Replace an existing policy by ID (PUT semantics — all fields required).
+   */
+  async updatePolicy(id: string, opts: PolicyUpdateOptions): Promise<Policy> {
+    return this.fetch<Policy>(`/api/policies/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(opts),
+    });
+  }
+
+  async deletePolicy(id: string): Promise<void> {
+    await this.fetch<void>(`/api/policies/${id}`, { method: 'DELETE' });
+  }
+
+  // ==========================================================================
+  // Webhook Methods
+  // ==========================================================================
+
+  async listWebhooks(): Promise<Webhook[]> {
+    const data = await this.fetch<{ webhooks: Webhook[] }>('/api/webhooks');
+    return data.webhooks;
+  }
+
+  async createWebhook(opts: WebhookCreateOptions): Promise<WebhookCreateResult> {
+    return this.fetch<WebhookCreateResult>('/api/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    });
+  }
+
+  async updateWebhook(id: string, opts: WebhookUpdateOptions): Promise<{ success: boolean }> {
+    return this.fetch<{ success: boolean }>(`/api/webhooks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(opts),
+    });
+  }
+
+  async deleteWebhook(id: string): Promise<void> {
+    await this.fetch<void>(`/api/webhooks/${id}`, { method: 'DELETE' });
+  }
+
+  async testWebhook(id: string): Promise<WebhookTestResult> {
+    return this.fetch<WebhookTestResult>(`/api/webhooks/${id}/test`, {
+      method: 'POST',
+    });
+  }
+
+  // ==========================================================================
+  // Audit Methods
+  // ==========================================================================
+
+  async listAuditLogs(opts: AuditListOptions = {}): Promise<AuditListResult> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(opts)) {
+      if (value !== undefined) params.set(key, String(value));
+    }
+    const query = params.toString();
+    const path = query ? `/api/audit?${query}` : '/api/audit';
+    return this.fetch<AuditListResult>(path);
+  }
+
+  async getAuditActors(): Promise<string[]> {
+    const data = await this.fetch<{ actors: string[] }>('/api/audit/actors');
+    return data.actors;
+  }
+
+  // ==========================================================================
+  // API Key Methods
+  // ==========================================================================
+
+  async listApiKeys(): Promise<ApiKey[]> {
+    const data = await this.fetch<{ keys: ApiKey[] }>('/api/api-keys');
+    return data.keys;
+  }
+
+  async createApiKey(opts: ApiKeyCreateOptions): Promise<ApiKeyCreateResult> {
+    return this.fetch<ApiKeyCreateResult>('/api/api-keys', {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    });
+  }
+
+  async revokeApiKey(id: string): Promise<void> {
+    await this.fetch<void>(`/api/api-keys/${id}`, { method: 'DELETE' });
   }
 
   /**

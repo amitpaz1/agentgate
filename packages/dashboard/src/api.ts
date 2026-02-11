@@ -54,6 +54,23 @@ export interface ListAuditResponse {
   };
 }
 
+export interface ListPoliciesResponse {
+  policies: Array<{
+    id: string;
+    name: string;
+    rules: Array<{ match: Record<string, unknown>; decision: string }>;
+    priority: number;
+    enabled: boolean;
+    createdAt: string;
+  }>;
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
+
 export interface ListRequestsResponse {
   requests: ApprovalRequest[];
   pagination: {
@@ -98,6 +115,22 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export const api = {
+  // List policies with pagination
+  async listPolicies(params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<ListPoliciesResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.offset) searchParams.set('offset', params.offset.toString());
+
+    const query = searchParams.toString();
+    const url = `${baseUrl}/api/policies${query ? `?${query}` : ''}`;
+
+    const response = await fetch(url, { headers: getHeaders() });
+    return handleResponse<ListPoliciesResponse>(response);
+  },
+
   // List requests with optional filters
   async listRequests(params?: {
     status?: string;

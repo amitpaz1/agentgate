@@ -435,6 +435,209 @@ describe('AgentGateClient', () => {
   });
 });
 
+describe('AgentGateClient - Policy Methods', () => {
+  let client: AgentGateClient;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    client = new AgentGateClient({ baseUrl: 'http://localhost:3000', apiKey: 'test-key' });
+  });
+
+  function mockResponse(data: unknown, status = 200) {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      json: () => Promise.resolve(data),
+    };
+  }
+
+  const samplePolicy = {
+    id: 'pol_1',
+    name: 'Auto-approve emails',
+    rules: [{ match: { action: 'send_email' }, decision: 'auto_approve' }],
+    priority: 100,
+    enabled: true,
+  };
+
+  it('listPolicies returns policies array', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ policies: [samplePolicy] }));
+    const result = await client.listPolicies();
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('Auto-approve emails');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/policies', expect.any(Object));
+  });
+
+  it('getPolicy fetches by id', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(samplePolicy));
+    const result = await client.getPolicy('pol_1');
+    expect(result.id).toBe('pol_1');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/policies/pol_1', expect.any(Object));
+  });
+
+  it('createPolicy sends POST', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(samplePolicy, 201));
+    const result = await client.createPolicy({
+      name: 'Auto-approve emails',
+      rules: [{ match: { action: 'send_email' }, decision: 'auto_approve' }],
+    });
+    expect(result.id).toBe('pol_1');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/policies', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('updatePolicy sends PUT', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ ...samplePolicy, name: 'Updated' }));
+    const result = await client.updatePolicy('pol_1', { name: 'Updated' });
+    expect(result.name).toBe('Updated');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/policies/pol_1', expect.objectContaining({ method: 'PUT' }));
+  });
+
+  it('deletePolicy sends DELETE', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 204, headers: new Headers({}), json: () => Promise.resolve(undefined) });
+    await client.deletePolicy('pol_1');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/policies/pol_1', expect.objectContaining({ method: 'DELETE' }));
+  });
+});
+
+describe('AgentGateClient - Webhook Methods', () => {
+  let client: AgentGateClient;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    client = new AgentGateClient({ baseUrl: 'http://localhost:3000', apiKey: 'test-key' });
+  });
+
+  function mockResponse(data: unknown, status = 200) {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      json: () => Promise.resolve(data),
+    };
+  }
+
+  const sampleWebhook = { id: 'wh_1', url: 'https://example.com/hook', events: ['request.approved'], createdAt: 1700000000, enabled: true };
+
+  it('listWebhooks returns webhooks', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ webhooks: [sampleWebhook] }));
+    const result = await client.listWebhooks();
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe('https://example.com/hook');
+  });
+
+  it('createWebhook sends POST and returns secret', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ ...sampleWebhook, secret: 'abc123', message: 'Save this secret' }, 201));
+    const result = await client.createWebhook({ url: 'https://example.com/hook', events: ['request.approved'] });
+    expect(result.secret).toBe('abc123');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/webhooks', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('updateWebhook sends PATCH', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ success: true }));
+    const result = await client.updateWebhook('wh_1', { enabled: false });
+    expect(result.success).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/webhooks/wh_1', expect.objectContaining({ method: 'PATCH' }));
+  });
+
+  it('deleteWebhook sends DELETE', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 204, headers: new Headers({}), json: () => Promise.resolve(undefined) });
+    await client.deleteWebhook('wh_1');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/webhooks/wh_1', expect.objectContaining({ method: 'DELETE' }));
+  });
+
+  it('testWebhook sends POST to test endpoint', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ success: true, status: 200, message: 'Test delivered successfully' }));
+    const result = await client.testWebhook('wh_1');
+    expect(result.success).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/webhooks/wh_1/test', expect.objectContaining({ method: 'POST' }));
+  });
+});
+
+describe('AgentGateClient - Audit Methods', () => {
+  let client: AgentGateClient;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    client = new AgentGateClient({ baseUrl: 'http://localhost:3000', apiKey: 'test-key' });
+  });
+
+  function mockResponse(data: unknown, status = 200) {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      json: () => Promise.resolve(data),
+    };
+  }
+
+  const auditResult = {
+    entries: [{ id: 'aud_1', requestId: 'req_1', eventType: 'approved', actor: 'user:admin', details: null, createdAt: '2024-01-15T10:00:00.000Z', request: { id: 'req_1', action: 'send_email', status: 'approved', urgency: 'normal' } }],
+    pagination: { total: 1, limit: 50, offset: 0, hasMore: false },
+  };
+
+  it('listAuditLogs without filters', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(auditResult));
+    const result = await client.listAuditLogs();
+    expect(result.entries).toHaveLength(1);
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/audit', expect.any(Object));
+  });
+
+  it('listAuditLogs with filters builds query string', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(auditResult));
+    await client.listAuditLogs({ actor: 'user:admin', eventType: 'approved', limit: 10 });
+    const url = mockFetch.mock.calls[0][0] as string;
+    expect(url).toContain('actor=user%3Aadmin');
+    expect(url).toContain('eventType=approved');
+    expect(url).toContain('limit=10');
+  });
+
+  it('getAuditActors returns actors array', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ actors: ['user:admin', 'policy:auto'] }));
+    const result = await client.getAuditActors();
+    expect(result).toEqual(['user:admin', 'policy:auto']);
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/audit/actors', expect.any(Object));
+  });
+});
+
+describe('AgentGateClient - API Key Methods', () => {
+  let client: AgentGateClient;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    client = new AgentGateClient({ baseUrl: 'http://localhost:3000', apiKey: 'test-key' });
+  });
+
+  function mockResponse(data: unknown, status = 200) {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      json: () => Promise.resolve(data),
+    };
+  }
+
+  it('listApiKeys returns keys', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ keys: [{ id: 'key_1', name: 'Test', scopes: ['admin'], createdAt: 1700000000, lastUsedAt: null, revokedAt: null, rateLimit: null, active: true }] }));
+    const result = await client.listApiKeys();
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('Test');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/api-keys', expect.any(Object));
+  });
+
+  it('createApiKey sends POST and returns key', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: 'key_1', key: 'ag_secret', name: 'New Key', scopes: ['admin'], rateLimit: null, message: 'Save this key' }, 201));
+    const result = await client.createApiKey({ name: 'New Key', scopes: ['admin'] });
+    expect(result.key).toBe('ag_secret');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/api-keys', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('revokeApiKey sends DELETE', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 204, headers: new Headers({}), json: () => Promise.resolve(undefined) });
+    await client.revokeApiKey('key_1');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:3000/api/api-keys/key_1', expect.objectContaining({ method: 'DELETE' }));
+  });
+});
+
 describe('errors', () => {
   describe('AgentGateError', () => {
     it('should have correct properties', () => {

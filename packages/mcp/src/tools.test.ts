@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   buildListParams,
+  buildAuditParams,
   formatResult,
   formatError,
   handleToolCall,
@@ -81,8 +82,8 @@ describe('formatError', () => {
 });
 
 describe('toolDefinitions', () => {
-  it('contains exactly 4 tools', () => {
-    expect(toolDefinitions).toHaveLength(4);
+  it('contains exactly 10 tools', () => {
+    expect(toolDefinitions).toHaveLength(10);
   });
 
   it('has agentgate_request tool with required action', () => {
@@ -110,6 +111,45 @@ describe('toolDefinitions', () => {
     expect(tool!.inputSchema.required).toContain('id');
     expect(tool!.inputSchema.required).toContain('decision');
   });
+
+  it('has agentgate_list_policies tool with no required fields', () => {
+    const tool = toolDefinitions.find((t) => t.name === 'agentgate_list_policies');
+    expect(tool).toBeDefined();
+    expect('required' in tool!.inputSchema).toBe(false);
+  });
+
+  it('has agentgate_create_policy tool with required name and rules', () => {
+    const tool = toolDefinitions.find((t) => t.name === 'agentgate_create_policy');
+    expect(tool).toBeDefined();
+    expect(tool!.inputSchema.required).toContain('name');
+    expect(tool!.inputSchema.required).toContain('rules');
+  });
+
+  it('has agentgate_update_policy tool with required id, name, and rules', () => {
+    const tool = toolDefinitions.find((t) => t.name === 'agentgate_update_policy');
+    expect(tool).toBeDefined();
+    expect(tool!.inputSchema.required).toContain('id');
+    expect(tool!.inputSchema.required).toContain('name');
+    expect(tool!.inputSchema.required).toContain('rules');
+  });
+
+  it('has agentgate_delete_policy tool with required id', () => {
+    const tool = toolDefinitions.find((t) => t.name === 'agentgate_delete_policy');
+    expect(tool).toBeDefined();
+    expect(tool!.inputSchema.required).toContain('id');
+  });
+
+  it('has agentgate_list_audit_logs tool with no required fields', () => {
+    const tool = toolDefinitions.find((t) => t.name === 'agentgate_list_audit_logs');
+    expect(tool).toBeDefined();
+    expect('required' in tool!.inputSchema).toBe(false);
+  });
+
+  it('has agentgate_get_audit_actors tool with no required fields', () => {
+    const tool = toolDefinitions.find((t) => t.name === 'agentgate_get_audit_actors');
+    expect(tool).toBeDefined();
+    expect('required' in tool!.inputSchema).toBe(false);
+  });
 });
 
 describe('normalizeDecidedBy', () => {
@@ -134,6 +174,23 @@ describe('normalizeDecidedBy', () => {
 
   it('prefixes with mcp: when namespace is unknown', () => {
     expect(normalizeDecidedBy('unknown:user')).toBe('mcp:unknown:user');
+  });
+});
+
+describe('buildAuditParams', () => {
+  it('returns empty string when no filters provided', () => {
+    expect(buildAuditParams({})).toBe('');
+  });
+
+  it('includes action filter', () => {
+    expect(buildAuditParams({ action: 'send_email' })).toBe('action=send_email');
+  });
+
+  it('includes multiple filters', () => {
+    const result = buildAuditParams({ actor: 'mcp:user', limit: 10, offset: 20 });
+    expect(result).toContain('actor=mcp%3Auser');
+    expect(result).toContain('limit=10');
+    expect(result).toContain('offset=20');
   });
 });
 
@@ -317,5 +374,136 @@ describe('handleToolCall', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0]!.text).toContain('Network error');
+  });
+
+  // Policy tools
+  it('calls GET /api/policies for agentgate_list_policies', async () => {
+    const responseData = [{ id: 'pol-1', name: 'Test Policy' }];
+    fetchMock.mockResolvedValue({
+      ok: true, status: 200,
+      json: () => Promise.resolve(responseData),
+    });
+
+    const result = await handleToolCall(config, 'agentgate_list_policies', {});
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/policies',
+      expect.objectContaining({ method: 'GET' })
+    );
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(result.content[0]!.text)).toEqual(responseData);
+  });
+
+  it('calls POST /api/policies for agentgate_create_policy', async () => {
+    const responseData = { id: 'pol-1', name: 'New Policy' };
+    fetchMock.mockResolvedValue({
+      ok: true, status: 201,
+      json: () => Promise.resolve(responseData),
+    });
+
+    const result = await handleToolCall(config, 'agentgate_create_policy', {
+      name: 'New Policy',
+      rules: [{ match: { action: 'send_email' }, decision: 'auto_approve' }],
+      priority: 50,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/policies',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"name":"New Policy"'),
+      })
+    );
+    expect(result.isError).toBeUndefined();
+  });
+
+  it('calls PUT /api/policies/:id for agentgate_update_policy', async () => {
+    const responseData = { id: 'pol-1', name: 'Updated' };
+    fetchMock.mockResolvedValue({
+      ok: true, status: 200,
+      json: () => Promise.resolve(responseData),
+    });
+
+    const result = await handleToolCall(config, 'agentgate_update_policy', {
+      id: 'pol-1',
+      name: 'Updated',
+      rules: [{ match: { action: '*' }, decision: 'route_to_human' }],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/policies/pol-1',
+      expect.objectContaining({ method: 'PUT' })
+    );
+    expect(result.isError).toBeUndefined();
+  });
+
+  it('calls DELETE /api/policies/:id for agentgate_delete_policy', async () => {
+    const responseData = { success: true, id: 'pol-1' };
+    fetchMock.mockResolvedValue({
+      ok: true, status: 200,
+      json: () => Promise.resolve(responseData),
+    });
+
+    const result = await handleToolCall(config, 'agentgate_delete_policy', {
+      id: 'pol-1',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/policies/pol-1',
+      expect.objectContaining({ method: 'DELETE' })
+    );
+    expect(result.isError).toBeUndefined();
+  });
+
+  // Audit tools
+  it('calls GET /api/audit for agentgate_list_audit_logs', async () => {
+    const responseData = { entries: [], pagination: { total: 0 } };
+    fetchMock.mockResolvedValue({
+      ok: true, status: 200,
+      json: () => Promise.resolve(responseData),
+    });
+
+    const result = await handleToolCall(config, 'agentgate_list_audit_logs', {
+      actor: 'mcp:user',
+      limit: 10,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/audit\?.*actor=mcp%3Auser.*limit=10/),
+      expect.objectContaining({ method: 'GET' })
+    );
+    expect(result.isError).toBeUndefined();
+  });
+
+  it('calls GET /api/audit without params when no filters', async () => {
+    const responseData = { entries: [], pagination: { total: 0 } };
+    fetchMock.mockResolvedValue({
+      ok: true, status: 200,
+      json: () => Promise.resolve(responseData),
+    });
+
+    await handleToolCall(config, 'agentgate_list_audit_logs', {});
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/audit',
+      expect.objectContaining({ method: 'GET' })
+    );
+  });
+
+  it('calls GET /api/audit/actors for agentgate_get_audit_actors', async () => {
+    const responseData = { actors: ['mcp:user', 'system:auto'] };
+    fetchMock.mockResolvedValue({
+      ok: true, status: 200,
+      json: () => Promise.resolve(responseData),
+    });
+
+    const result = await handleToolCall(config, 'agentgate_get_audit_actors', {});
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/audit/actors',
+      expect.objectContaining({ method: 'GET' })
+    );
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(result.content[0]!.text)).toEqual(responseData);
   });
 });

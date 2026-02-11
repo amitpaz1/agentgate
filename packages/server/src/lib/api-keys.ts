@@ -4,7 +4,50 @@ import { createHash, randomBytes } from "node:crypto";
 import { nanoid } from "nanoid";
 import { eq, and, isNull } from "drizzle-orm";
 import { getDb, apiKeys, type ApiKey } from "../db/index.js";
+import { getConfig } from "../config.js";
 import { getLogger } from "./logger.js";
+
+// --- LRU Cache for API key validation ---
+interface CacheEntry {
+  apiKey: ApiKey;
+  cachedAt: number; // ms
+}
+
+const apiKeyCache = new Map<string, CacheEntry>();
+
+/**
+ * Evict oldest entry when cache exceeds max size (simple LRU via insertion order).
+ */
+function evictIfNeeded(): void {
+  const maxSize = getConfig().apiKeyCacheMaxSize;
+  while (apiKeyCache.size > maxSize) {
+    // Map iteration order = insertion order; first key is oldest
+    const oldest = apiKeyCache.keys().next().value;
+    if (oldest) apiKeyCache.delete(oldest);
+    else break;
+  }
+}
+
+/**
+ * Invalidate a cached API key entry by its hash.
+ */
+export function invalidateApiKeyCache(keyHash: string): void {
+  apiKeyCache.delete(keyHash);
+}
+
+/**
+ * Clear the entire API key cache (for testing).
+ */
+export function clearApiKeyCache(): void {
+  apiKeyCache.clear();
+}
+
+/**
+ * Get current cache size (for testing).
+ */
+export function getApiKeyCacheSize(): number {
+  return apiKeyCache.size;
+}
 
 // --- Batched lastUsedAt writes ---
 // Buffer: apiKey.id → unix timestamp (seconds)
@@ -20,9 +63,11 @@ async function flushLastUsed(): Promise<void> {
   const entries = Array.from(lastUsedBuffer.entries());
   lastUsedBuffer.clear();
   const db = getDb();
-  for (const [id, timestamp] of entries) {
-    await db.update(apiKeys).set({ lastUsedAt: timestamp }).where(eq(apiKeys.id, id));
-  }
+  await Promise.all(
+    entries.map(([id, timestamp]) =>
+      db.update(apiKeys).set({ lastUsedAt: timestamp }).where(eq(apiKeys.id, id))
+    )
+  );
 }
 
 /**
@@ -101,6 +146,22 @@ export async function createApiKey(
  */
 export async function validateApiKey(key: string): Promise<ApiKey | null> {
   const hash = hashApiKey(key);
+  const now = Date.now();
+  const ttlMs = getConfig().apiKeyCacheTtlSec * 1000;
+
+  // Check cache first
+  const cached = apiKeyCache.get(hash);
+  if (cached && (now - cached.cachedAt) < ttlMs) {
+    // Re-insert to refresh LRU position
+    apiKeyCache.delete(hash);
+    apiKeyCache.set(hash, cached);
+    // Buffer lastUsedAt
+    lastUsedBuffer.set(cached.apiKey.id, Math.floor(now / 1000));
+    return cached.apiKey;
+  }
+
+  // Cache miss or expired — query DB
+  if (cached) apiKeyCache.delete(hash); // expired
 
   const results = await getDb()
     .select()
@@ -113,8 +174,12 @@ export async function validateApiKey(key: string): Promise<ApiKey | null> {
     return null;
   }
 
+  // Add to cache (evict if needed)
+  evictIfNeeded();
+  apiKeyCache.set(hash, { apiKey, cachedAt: now });
+
   // Buffer lastUsedAt — flushed periodically by startLastUsedFlusher()
-  lastUsedBuffer.set(apiKey.id, Math.floor(Date.now() / 1000));
+  lastUsedBuffer.set(apiKey.id, Math.floor(now / 1000));
 
   return apiKey;
 }
@@ -124,8 +189,20 @@ export async function validateApiKey(key: string): Promise<ApiKey | null> {
  * @param id - The API key ID to revoke
  */
 export async function revokeApiKey(id: string): Promise<void> {
+  // Find the key hash to invalidate cache
+  const results = await getDb()
+    .select({ keyHash: apiKeys.keyHash })
+    .from(apiKeys)
+    .where(eq(apiKeys.id, id))
+    .limit(1);
+
   await getDb()
     .update(apiKeys)
     .set({ revokedAt: Math.floor(Date.now() / 1000) })
     .where(eq(apiKeys.id, id));
+
+  // Invalidate cache entry
+  if (results[0]) {
+    invalidateApiKeyCache(results[0].keyHash);
+  }
 }

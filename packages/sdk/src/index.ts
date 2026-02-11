@@ -9,6 +9,21 @@ export type {
   RequestOptions,
   WaitOptions,
   ListOptions,
+  PolicyCreateOptions,
+  PolicyUpdateOptions,
+  Webhook,
+  WebhookWithDeliveries,
+  WebhookDelivery,
+  WebhookCreateOptions,
+  WebhookCreateResult,
+  WebhookUpdateOptions,
+  WebhookTestResult,
+  AuditEntry,
+  AuditListOptions,
+  AuditListResult,
+  ApiKey,
+  ApiKeyCreateOptions,
+  ApiKeyCreateResult,
 } from './client.js';
 
 // Errors

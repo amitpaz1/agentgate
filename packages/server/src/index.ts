@@ -18,6 +18,7 @@ import { getRateLimiter, resetRateLimiter } from "./lib/rate-limiter/index.js";
 import { initLogger, getLogger } from "./lib/logger.js";
 import { startRetryScanner, encryptExistingSecrets } from "./lib/webhook.js";
 import { startLastUsedFlusher, stopLastUsedFlusher } from "./lib/api-keys.js";
+import { startCleanup, stopCleanup } from "./lib/cleanup.js";
 import { sql } from "drizzle-orm";
 
 // Create Hono app with typed variables
@@ -192,6 +193,10 @@ async function main() {
   startLastUsedFlusher();
   getLogger().info('API key lastUsedAt flusher started (60s interval).');
 
+  // Start background cleanup job for expired tokens
+  startCleanup();
+  getLogger().info(`Cleanup job started (${config.cleanupIntervalMs}ms interval, ${config.cleanupRetentionDays}d retention).`);
+
   // --- Graceful shutdown ---
   let shuttingDown = false;
 
@@ -210,6 +215,9 @@ async function main() {
 
     stopLastUsedFlusher();
     getLogger().info('API key lastUsedAt flusher stopped.');
+
+    stopCleanup();
+    getLogger().info('Cleanup job stopped.');
 
     try {
       await resetRateLimiter();

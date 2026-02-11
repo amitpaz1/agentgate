@@ -108,6 +108,88 @@ const requests = await client.listRequests({
 })
 ```
 
+### Policy Management
+
+```typescript
+// List all policies
+const policies = await client.listPolicies()
+
+// Get a specific policy
+const policy = await client.getPolicy('pol_123')
+
+// Create a policy
+const newPolicy = await client.createPolicy({
+  name: 'Auto-approve low-risk emails',
+  rules: [{ match: { action: 'send_email' }, decision: 'auto_approve' }],
+  priority: 100,
+  enabled: true,
+})
+
+// Update a policy
+const updated = await client.updatePolicy('pol_123', { enabled: false })
+
+// Delete a policy
+await client.deletePolicy('pol_123')
+```
+
+### Webhook Management
+
+```typescript
+// List webhooks
+const webhooks = await client.listWebhooks()
+
+// Create a webhook (secret is only returned once!)
+const wh = await client.createWebhook({
+  url: 'https://example.com/webhook',
+  events: ['request.approved', 'request.denied'],
+})
+console.log('Save this secret:', wh.secret)
+
+// Update a webhook
+await client.updateWebhook('wh_123', { enabled: false })
+
+// Delete a webhook
+await client.deleteWebhook('wh_123')
+
+// Test a webhook
+const result = await client.testWebhook('wh_123')
+console.log(result.success ? 'Delivered!' : 'Failed:', result.message)
+```
+
+### Audit Logs
+
+```typescript
+// List audit entries with filters
+const audit = await client.listAuditLogs({
+  eventType: 'approved',
+  actor: 'dashboard:admin',
+  from: '2024-01-01',
+  to: '2024-01-31',
+  limit: 20,
+})
+console.log(audit.entries, audit.pagination)
+
+// Get unique actors for filter dropdowns
+const actors = await client.getAuditActors()
+```
+
+### API Key Management
+
+```typescript
+// List API keys (secrets are never returned)
+const keys = await client.listApiKeys()
+
+// Create an API key (key is only returned once!)
+const newKey = await client.createApiKey({
+  name: 'CI Pipeline',
+  scopes: ['agent'],
+})
+console.log('Save this key:', newKey.key)
+
+// Revoke an API key
+await client.revokeApiKey('key_123')
+```
+
 ### Error Handling
 
 ```typescript
@@ -136,7 +218,14 @@ import type {
   DecisionType,
   Policy,
   PolicyRule,
-  PolicyDecision
+  PolicyDecision,
+  Webhook,
+  WebhookCreateOptions,
+  WebhookCreateResult,
+  AuditEntry,
+  AuditListResult,
+  ApiKey,
+  ApiKeyCreateResult,
 } from '@agentgate/sdk'
 ```
 

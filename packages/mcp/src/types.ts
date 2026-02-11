@@ -26,6 +26,47 @@ export interface DecideArgs {
   decidedBy?: string;
 }
 
+// Policy types
+export interface ListPoliciesArgs {
+  // no required args
+}
+
+export interface CreatePolicyArgs {
+  name: string;
+  rules: Array<Record<string, unknown>>;
+  priority?: number;
+  enabled?: boolean;
+}
+
+export interface UpdatePolicyArgs {
+  id: string;
+  name: string;
+  rules: Array<Record<string, unknown>>;
+  priority?: number;
+  enabled?: boolean;
+}
+
+export interface DeletePolicyArgs {
+  id: string;
+}
+
+// Audit types
+export interface ListAuditLogsArgs {
+  action?: string;
+  status?: string;
+  eventType?: string;
+  actor?: string;
+  from?: string;
+  to?: string;
+  requestId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface GetAuditActorsArgs {
+  // no required args
+}
+
 // API types
 export interface ApiConfig {
   baseUrl: string;

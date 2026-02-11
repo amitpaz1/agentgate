@@ -149,6 +149,18 @@ export const ConfigSchema = z.object({
   /** AES-256-GCM key for encrypting webhook secrets at rest */
   webhookEncryptionKey: z.string().optional(),
 
+  // Cleanup
+  /** Retention period in days for expired tokens/deliveries (default: 30) */
+  cleanupRetentionDays: z.coerce.number().int().min(1).default(30),
+  /** Cleanup interval in milliseconds (default: 1 hour) */
+  cleanupIntervalMs: z.coerce.number().int().min(1000).default(3_600_000),
+
+  // API Key Cache
+  /** API key cache TTL in seconds (default: 60) */
+  apiKeyCacheTtlSec: z.coerce.number().int().min(1).default(60),
+  /** Max API key cache entries (default: 1000) */
+  apiKeyCacheMaxSize: z.coerce.number().int().min(1).default(1000),
+
   // Logging
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
   logFormat: z.enum(["json", "pretty"]).default("pretty"),
@@ -201,6 +213,10 @@ const ENV_MAP: Record<string, keyof z.infer<typeof ConfigSchema>> = {
   DASHBOARD_URL: "dashboardUrl",
   CHANNEL_ROUTES: "channelRoutes",
   WEBHOOK_ENCRYPTION_KEY: "webhookEncryptionKey",
+  CLEANUP_RETENTION_DAYS: "cleanupRetentionDays",
+  CLEANUP_INTERVAL_MS: "cleanupIntervalMs",
+  API_KEY_CACHE_TTL_SEC: "apiKeyCacheTtlSec",
+  API_KEY_CACHE_MAX_SIZE: "apiKeyCacheMaxSize",
   LOG_LEVEL: "logLevel",
   LOG_FORMAT: "logFormat",
 };

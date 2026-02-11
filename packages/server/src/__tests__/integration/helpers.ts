@@ -559,11 +559,25 @@ export function setupTestContext(): TestContext {
 
     // Policies routes
     app.get("/api/policies", async (c) => {
-      const allPolicies = await db.select().from(policies).orderBy(policies.priority);
-      return c.json(allPolicies.map(p => ({
-        ...p,
-        rules: JSON.parse(p.rules),
-      })));
+      const limit = Math.min(parseInt(c.req.query("limit") || "50", 10), 100);
+      const offset = parseInt(c.req.query("offset") || "0", 10);
+
+      const allPolicies = await db.select().from(policies).orderBy(policies.priority).limit(limit).offset(offset);
+      const countResult = await db.select({ count: sql<number>`count(*)` }).from(policies);
+      const total = countResult[0]?.count || 0;
+
+      return c.json({
+        policies: allPolicies.map(p => ({
+          ...p,
+          rules: JSON.parse(p.rules),
+        })),
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: offset + allPolicies.length < total,
+        },
+      });
     });
 
     app.post("/api/policies", async (c) => {

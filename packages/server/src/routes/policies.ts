@@ -2,7 +2,7 @@
 
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import isSafeRegex from "safe-regex2";
 import { getDb, policies } from "../db/index.js";
 import type { PolicyRule } from "@agentgate/core";
@@ -78,9 +78,23 @@ function validatePolicyBody(body: unknown): {
   };
 }
 
-// GET /api/policies - List all policies
+// GET /api/policies - List policies with pagination
 policiesRouter.get("/", async (c) => {
-  const allPolicies = await getDb().select().from(policies).orderBy(policies.priority);
+  const limit = Math.max(1, Math.min(parseInt(c.req.query("limit") || "50", 10) || 50, 100));
+  const offset = Math.max(0, parseInt(c.req.query("offset") || "0", 10) || 0);
+
+  const allPolicies = await getDb()
+    .select()
+    .from(policies)
+    .orderBy(policies.priority)
+    .limit(limit)
+    .offset(offset);
+
+  // Get total count
+  const countResult = await getDb()
+    .select({ count: sql<number>`count(*)` })
+    .from(policies);
+  const total = Number(countResult[0]?.count) || 0;
 
   // Parse rules JSON for each policy
   const parsed = allPolicies.map((p) => ({
@@ -88,7 +102,15 @@ policiesRouter.get("/", async (c) => {
     rules: JSON.parse(p.rules) as PolicyRule[],
   }));
 
-  return c.json(parsed);
+  return c.json({
+    policies: parsed,
+    pagination: {
+      total,
+      limit,
+      offset,
+      hasMore: offset + allPolicies.length < total,
+    },
+  });
 });
 
 // POST /api/policies - Create policy
