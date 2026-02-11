@@ -38,9 +38,6 @@ const decided = await client.waitForDecision(request.id, {
 if (decided.status === 'approved') {
   // Execute the action
   console.log('Approved! Sending email...')
-  
-  // Confirm execution for audit trail
-  await client.confirm(request.id, { sent: true })
 } else if (decided.status === 'denied') {
   console.log('Request denied:', decided.decisionReason)
 } else if (decided.status === 'expired') {
@@ -97,17 +94,6 @@ const decided = await client.waitForDecision('req_123', {
 ```
 
 Throws `TimeoutError` if timeout is reached.
-
-##### `confirm(id, result?): Promise<void>`
-
-Confirm that an action was executed. Used for audit trail.
-
-```typescript
-await client.confirm('req_123', { 
-  executed: true, 
-  timestamp: new Date() 
-})
-```
 
 ##### `listRequests(options?): Promise<ApprovalRequest[]>`
 

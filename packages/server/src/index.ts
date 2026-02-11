@@ -30,11 +30,11 @@ const log = initLogger();
 // Enforce production security requirements
 if (config.isProduction) {
   const warnings = validateProductionConfig(config);
-  const criticalWarnings = warnings.filter(w => w.includes('ADMIN_API_KEY'));
+  const criticalWarnings = warnings.filter(w => w.includes('ADMIN_API_KEY') || w.includes('JWT_SECRET'));
   if (criticalWarnings.length > 0) {
     log.fatal('Production security requirements not met');
     criticalWarnings.forEach(w => log.fatal(`  - ${w}`));
-    log.fatal('Set ADMIN_API_KEY environment variable (min 16 characters) to start in production mode.');
+    log.fatal('Set ADMIN_API_KEY (min 16 chars) and JWT_SECRET (min 32 chars) environment variables to start in production mode.');
     process.exit(1);
   }
   // Log non-critical warnings

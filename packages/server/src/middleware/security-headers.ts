@@ -1,6 +1,7 @@
 // @agentgate/server - Security headers middleware
 
 import type { Context, Next } from "hono";
+import { getConfig } from "../config.js";
 
 /**
  * Security headers middleware
@@ -23,6 +24,11 @@ export async function securityHeadersMiddleware(
 
   // Control referrer information
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+
+  // HSTS (opt-in)
+  if (getConfig().hstsEnabled) {
+    c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
 
   // Content Security Policy - allows inline styles for HTML responses
   c.header(

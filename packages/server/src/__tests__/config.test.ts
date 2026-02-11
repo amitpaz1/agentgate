@@ -63,6 +63,18 @@ describe("config", () => {
       );
     });
 
+    it("should parse hstsEnabled with various truthy values", () => {
+      expect(parseConfig({ hstsEnabled: "true" }).hstsEnabled).toBe(true);
+      expect(parseConfig({ hstsEnabled: "TRUE" }).hstsEnabled).toBe(true);
+      expect(parseConfig({ hstsEnabled: "1" }).hstsEnabled).toBe(true);
+      expect(parseConfig({ hstsEnabled: "yes" }).hstsEnabled).toBe(true);
+      expect(parseConfig({ hstsEnabled: "Yes" }).hstsEnabled).toBe(true);
+      expect(parseConfig({ hstsEnabled: "false" }).hstsEnabled).toBe(false);
+      expect(parseConfig({ hstsEnabled: "0" }).hstsEnabled).toBe(false);
+      expect(parseConfig({ hstsEnabled: "no" }).hstsEnabled).toBe(false);
+      expect(parseConfig({}).hstsEnabled).toBe(false);
+    });
+
     it("should validate node env", () => {
       expect(parseConfig({ nodeEnv: "production" }).nodeEnv).toBe("production");
       expect(parseConfig({ nodeEnv: "test" }).nodeEnv).toBe("test");
@@ -262,10 +274,21 @@ describe("config", () => {
       expect(warnings).toContain("ADMIN_API_KEY is required in production");
     });
 
+    it("should warn about missing JWT_SECRET in production", () => {
+      const config = parseConfig({
+        nodeEnv: "production",
+        adminApiKey: "supersecretadminkey123",
+      });
+
+      const warnings = validateProductionConfig(config);
+      expect(warnings).toContain("JWT_SECRET is required in production");
+    });
+
     it("should warn about missing CORS origins in production", () => {
       const config = parseConfig({
         nodeEnv: "production",
         adminApiKey: "supersecretadminkey123",
+        jwtSecret: "a-very-long-jwt-secret-at-least-32-chars",
       });
 
       const warnings = validateProductionConfig(config);
@@ -293,6 +316,17 @@ describe("config", () => {
 
       const warnings = validateProductionConfig(config);
       expect(warnings).toHaveLength(0);
+    });
+
+    it("should produce critical warnings that startup logic can filter", () => {
+      const config = parseConfig({ nodeEnv: "production" });
+      const warnings = validateProductionConfig(config);
+      const criticalWarnings = warnings.filter(
+        (w) => w.includes("ADMIN_API_KEY") || w.includes("JWT_SECRET")
+      );
+      expect(criticalWarnings.length).toBeGreaterThan(0);
+      expect(criticalWarnings.some((w) => w.includes("ADMIN_API_KEY"))).toBe(true);
+      expect(criticalWarnings.some((w) => w.includes("JWT_SECRET"))).toBe(true);
     });
   });
 

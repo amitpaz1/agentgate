@@ -59,6 +59,5 @@ const decided = await client.waitForDecision(request.id)
 
 if (decided.status === 'approved') {
   await sendEmail(decided.params)
-  await client.confirm(decided.id)
 }
 ```

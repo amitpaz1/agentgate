@@ -39,9 +39,6 @@ const decided = await client.waitForDecision(request.id, {
 if (decided.status === 'approved') {
   console.log('Approved! Sending email...')
   await sendEmail(decided.params)
-  
-  // Confirm execution for audit trail
-  await client.confirm(request.id, { sent: true })
 } else if (decided.status === 'denied') {
   console.log('Request denied:', decided.decisionReason)
 }
@@ -99,19 +96,6 @@ const decided = await client.waitForDecision('req_123', {
 
 **Returns:** `Promise<ApprovalRequest>`  
 **Throws:** `TimeoutError` if timeout is reached
-
-#### `confirm(id, result?)`
-
-Confirm that an action was executed. Used for audit trail.
-
-```typescript
-await client.confirm('req_123', { 
-  executed: true, 
-  timestamp: new Date() 
-})
-```
-
-**Returns:** `Promise<void>`
 
 #### `listRequests(options?)`
 
@@ -217,4 +201,4 @@ const decisions = await Promise.all(
 2. **Use meaningful action names** that describe what's being approved
 3. **Include context** to help humans make informed decisions
 4. **Set appropriate urgency levels** to route requests correctly
-5. **Confirm execution** to maintain a complete audit trail
+5. **Log execution results** to maintain a complete audit trail

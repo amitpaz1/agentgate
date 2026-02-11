@@ -73,6 +73,15 @@ export const ConfigSchema = z.object({
       return val.split(",").map((origin) => origin.trim()).filter(Boolean);
     }),
 
+  /** Enable HSTS header (opt-in, default false) */
+  hstsEnabled: z
+    .union([z.boolean(), z.string()])
+    .transform((val) => {
+      if (typeof val === "boolean") return val;
+      return ["true", "1", "yes"].includes(val.toLowerCase());
+    })
+    .default(false),
+
   // Rate Limiting
   /** Requests per minute per API key */
   rateLimitRpm: z.coerce.number().int().min(0).default(60),
@@ -165,6 +174,7 @@ const ENV_MAP: Record<string, keyof z.infer<typeof ConfigSchema>> = {
   ADMIN_API_KEY: "adminApiKey",
   JWT_SECRET: "jwtSecret",
   CORS_ALLOWED_ORIGINS: "corsAllowedOrigins",
+  HSTS_ENABLED: "hstsEnabled",
   RATE_LIMIT_RPM: "rateLimitRpm",
   RATE_LIMIT_ENABLED: "rateLimitEnabled",
   RATE_LIMIT_BACKEND: "rateLimitBackend",
@@ -299,7 +309,7 @@ export function validateProductionConfig(config: Config): string[] {
       warnings.push("ADMIN_API_KEY is required in production");
     }
     if (!config.jwtSecret) {
-      warnings.push("JWT_SECRET is recommended in production");
+      warnings.push("JWT_SECRET is required in production");
     }
     if (!config.corsAllowedOrigins) {
       warnings.push("CORS_ALLOWED_ORIGINS should be set in production");

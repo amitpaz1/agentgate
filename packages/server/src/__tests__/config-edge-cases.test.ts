@@ -254,7 +254,7 @@ describe("config edge cases", () => {
         adminApiKey: "supersecretadminkey123",
       });
       const warnings = validateProductionConfig(config);
-      expect(warnings).toContain("JWT_SECRET is recommended in production");
+      expect(warnings).toContain("JWT_SECRET is required in production");
     });
 
     it("should not warn when all production settings are correct", () => {
