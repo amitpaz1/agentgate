@@ -1,48 +1,11 @@
 // @agentgate/slack - Pure helper functions
 
 import type { KnownBlock } from '@slack/types';
-import type { ApprovalRequest } from '@agentgate/core';
+import type { ApprovalRequest, DecisionLinks } from '@agentgate/core';
+import { truncate, formatJson, getUrgencyEmoji } from '@agentgate/core';
 
-/**
- * Decision links for one-click approve/deny
- */
-export interface DecisionLinks {
-  /** URL for approving the request */
-  approveUrl: string;
-  /** URL for denying the request */
-  denyUrl: string;
-  /** When the links expire */
-  expiresAt?: string;
-}
-
-/**
- * Truncate a string to a max length, adding ellipsis if truncated
- */
-export function truncate(str: string, maxLen: number): string {
-  if (str.length <= maxLen) return str;
-  return str.slice(0, maxLen - 3) + '...';
-}
-
-/**
- * Format a JSON object for display in Slack
- */
-export function formatJson(obj: Record<string, unknown>, maxLen = 500): string {
-  const str = JSON.stringify(obj, null, 2);
-  return truncate(str, maxLen);
-}
-
-/**
- * Get urgency emoji
- */
-export function getUrgencyEmoji(urgency: string): string {
-  switch (urgency) {
-    case 'critical': return '🔴';
-    case 'high': return '🟠';
-    case 'normal': return '🟡';
-    case 'low': return '🟢';
-    default: return '⚪';
-  }
-}
+export type { DecisionLinks } from '@agentgate/core';
+export { truncate, formatJson, getUrgencyEmoji } from '@agentgate/core';
 
 /**
  * Options for building approval blocks

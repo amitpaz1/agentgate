@@ -14,7 +14,8 @@ export class AgentGateHttpClient {
   }
 
   async request<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = {};
+    if (body) headers['Content-Type'] = 'application/json';
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
     const response = await fetch(`${this.baseUrl}${path}`, {

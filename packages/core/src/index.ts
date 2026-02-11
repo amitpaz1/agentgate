@@ -14,7 +14,17 @@ export type {
   PolicyRule,
   Policy,
   PolicyDecision,
+  DecisionLinks,
 } from './types.js';
+
+// Shared utilities
+export {
+  truncate,
+  formatJson,
+  getUrgencyEmoji,
+  escapeHtml,
+  type FormatJsonOptions,
+} from './utils.js';
 
 // Policy engine
 export { evaluatePolicy } from './policy-engine.js';

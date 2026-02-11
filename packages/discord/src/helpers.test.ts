@@ -162,16 +162,16 @@ describe("buildApprovalEmbed", () => {
 
   it("includes decision links when provided", () => {
     const links = {
-      approve: "https://example.com/approve/abc123",
-      deny: "https://example.com/deny/def456",
+      approveUrl: "https://example.com/approve/abc123",
+      denyUrl: "https://example.com/deny/def456",
     };
     const embed = buildApprovalEmbed(baseRequest, links);
     const linksField = embed.fields?.find((f) =>
       f.name.includes("One-Click")
     );
     expect(linksField).toBeDefined();
-    expect(linksField?.value).toContain(links.approve);
-    expect(linksField?.value).toContain(links.deny);
+    expect(linksField?.value).toContain(links.approveUrl);
+    expect(linksField?.value).toContain(links.denyUrl);
   });
 
   it("handles string createdAt", () => {

@@ -77,8 +77,8 @@ async function fetchDecisionTokens(
     };
 
     return {
-      approve: data.tokens.approve.url,
-      deny: data.tokens.deny.url,
+      approveUrl: data.tokens.approve.url,
+      denyUrl: data.tokens.deny.url,
     };
   } catch (error) {
     console.warn("Failed to fetch decision tokens:", error);

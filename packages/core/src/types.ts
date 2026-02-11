@@ -103,6 +103,20 @@ export interface Policy {
 }
 
 /**
+ * Decision links for one-click approve/deny actions
+ */
+export interface DecisionLinks {
+  /** URL for approving the request */
+  approveUrl: string;
+  /** URL for denying the request */
+  denyUrl: string;
+  /** URL to view the request in a dashboard */
+  viewUrl?: string;
+  /** When the links expire (ISO string) */
+  expiresAt?: string;
+}
+
+/**
  * Result of policy evaluation
  */
 export interface PolicyDecision {

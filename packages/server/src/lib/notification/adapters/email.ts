@@ -6,20 +6,13 @@
  * and includes one-click action links in the email.
  */
 
-import type { AgentGateEvent, RequestCreatedEvent } from "@agentgate/core";
+import type { AgentGateEvent, RequestCreatedEvent, DecisionLinks } from "@agentgate/core";
+import { getUrgencyEmoji, formatJson, escapeHtml } from "@agentgate/core";
 import type { NotificationChannelAdapter, NotificationResult } from "../types.js";
 import { getConfig } from "../../../config.js";
 import { generateDecisionTokens } from "../../decision-tokens.js";
 
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface DecisionLinks {
-  approveUrl: string;
-  denyUrl: string;
-  viewUrl?: string;
-}
+export type { DecisionLinks } from "@agentgate/core";
 
 // ============================================================================
 // Decision Link Generation
@@ -137,44 +130,10 @@ function getUrgencyColor(urgency: string): string {
 }
 
 /**
- * Get urgency emoji
+ * Format JSON for display in emails (HTML-escaped).
  */
-function getUrgencyEmoji(urgency: string): string {
-  switch (urgency) {
-    case "critical":
-      return "🔴";
-    case "high":
-      return "🟠";
-    case "normal":
-      return "🟡";
-    case "low":
-      return "🟢";
-    default:
-      return "⚪";
-  }
-}
-
-/**
- * Escape user-controlled strings before interpolating into HTML templates.
- * Prevents XSS when values like action names contain HTML/JS.
- */
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/**
- * Format JSON for display in emails.
- * Output is escaped for safe embedding inside HTML (e.g. <pre> tags).
- */
-function formatJson(obj: Record<string, unknown>, maxLen = 500): string {
-  const str = JSON.stringify(obj, null, 2);
-  const truncated = str.length <= maxLen ? str : str.slice(0, maxLen - 3) + "...";
-  return escapeHtml(truncated);
+function formatJsonHtml(obj: Record<string, unknown>, maxLen = 500): string {
+  return formatJson(obj, { maxLen, escapeHtml: true });
 }
 
 /**
@@ -194,7 +153,7 @@ export function buildRequestCreatedHtml(
       <tr>
         <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
           <strong style="color: #374151;">Parameters</strong><br/>
-          <pre style="background: #f3f4f6; padding: 12px; border-radius: 6px; font-size: 12px; margin: 8px 0 0 0; overflow-x: auto; white-space: pre-wrap;">${formatJson(payload.params as Record<string, unknown>)}</pre>
+          <pre style="background: #f3f4f6; padding: 12px; border-radius: 6px; font-size: 12px; margin: 8px 0 0 0; overflow-x: auto; white-space: pre-wrap;">${formatJsonHtml(payload.params as Record<string, unknown>)}</pre>
         </td>
       </tr>`
       : "";
@@ -205,7 +164,7 @@ export function buildRequestCreatedHtml(
       <tr>
         <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
           <strong style="color: #374151;">Context</strong><br/>
-          <pre style="background: #f3f4f6; padding: 12px; border-radius: 6px; font-size: 12px; margin: 8px 0 0 0; overflow-x: auto; white-space: pre-wrap;">${formatJson(payload.context as Record<string, unknown>)}</pre>
+          <pre style="background: #f3f4f6; padding: 12px; border-radius: 6px; font-size: 12px; margin: 8px 0 0 0; overflow-x: auto; white-space: pre-wrap;">${formatJsonHtml(payload.context as Record<string, unknown>)}</pre>
         </td>
       </tr>`
       : "";
@@ -496,7 +455,7 @@ export function buildGenericHtml(event: AgentGateEvent): string {
       html += `
       <div class="field">
         <span class="label">Parameters:</span>
-        <pre>${formatJson(event.payload.params as Record<string, unknown>)}</pre>
+        <pre>${formatJsonHtml(event.payload.params as Record<string, unknown>)}</pre>
       </div>`;
     }
   }
@@ -611,13 +570,23 @@ export class EmailAdapter implements NotificationChannelAdapter {
       const text = formatEmailBody(event, links);
       const html = formatEmailHtml(event, links);
 
-      const result = await transporter.sendMail({
-        from: config.smtpFrom,
-        to: target,
-        subject,
-        text,
-        html,
-      });
+      let result;
+      try {
+        result = await transporter.sendMail({
+          from: config.smtpFrom,
+          to: target,
+          subject,
+          text,
+          html,
+        });
+      } catch (sendError) {
+        // Invalidate transporter on connection-level errors so next call creates a fresh one
+        const code = (sendError as NodeJS.ErrnoException).code;
+        if (code === 'ECONNRESET' || code === 'ECONNREFUSED' || code === 'ETIMEDOUT') {
+          this.transporter = null;
+        }
+        throw sendError;
+      }
 
       return {
         success: true,

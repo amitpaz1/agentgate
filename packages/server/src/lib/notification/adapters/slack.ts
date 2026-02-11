@@ -5,46 +5,14 @@
  * Uses Block Kit for rich message formatting.
  */
 
-import type { AgentGateEvent } from "@agentgate/core";
+import type { AgentGateEvent, DecisionLinks } from "@agentgate/core";
+import { getUrgencyEmoji, formatJson } from "@agentgate/core";
 import type { NotificationChannelAdapter, NotificationResult } from "../types.js";
 import { getConfig } from "../../../config.js";
 import { generateDecisionTokens } from "../../decision-tokens.js";
 
-/**
- * Decision links for one-click approve/deny
- */
-export interface DecisionLinks {
-  approveUrl: string;
-  denyUrl: string;
-  expiresAt: string;
-}
-
-/**
- * Get urgency emoji for Slack messages
- */
-export function getUrgencyEmoji(urgency: string): string {
-  switch (urgency) {
-    case "critical":
-      return "🔴";
-    case "high":
-      return "🟠";
-    case "normal":
-      return "🟡";
-    case "low":
-      return "🟢";
-    default:
-      return "⚪";
-  }
-}
-
-/**
- * Format JSON for display in Slack (truncated)
- */
-export function formatJson(obj: Record<string, unknown>, maxLen = 500): string {
-  const str = JSON.stringify(obj, null, 2);
-  if (str.length <= maxLen) return str;
-  return str.slice(0, maxLen - 3) + "...";
-}
+export type { DecisionLinks } from "@agentgate/core";
+export { getUrgencyEmoji, formatJson } from "@agentgate/core";
 
 /**
  * Options for building Slack blocks
@@ -202,15 +170,17 @@ export function buildRequestCreatedBlocks(
     });
 
     // Add expiry note
-    blocks.push({
-      type: "context",
-      elements: [
-        {
-          type: "mrkdwn",
-          text: `⏰ One-click links expire: ${decisionLinks.expiresAt}`,
-        },
-      ],
-    });
+    if (decisionLinks.expiresAt) {
+      blocks.push({
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: `⏰ One-click links expire: ${decisionLinks.expiresAt}`,
+          },
+        ],
+      });
+    }
   }
 
   return blocks;

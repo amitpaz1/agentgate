@@ -107,6 +107,63 @@ function validateDecisionBody(body: unknown): {
   };
 }
 
+/**
+ * Handles the 4-step auto-decision pipeline for policy-driven approve/deny.
+ *
+ * Steps:
+ *   1. **Audit log** – records the decision in the audit trail
+ *   2. **Webhook** – delivers `request.approved` or `request.denied` webhook
+ *   3. **Event emit** – emits a `RequestDecidedEvent` on the global emitter
+ *   4. **Dispatch** – fans the decided event out to notification channels
+ *
+ * @param opts.requestId   - Unique request identifier
+ * @param opts.action      - The action string from the original request
+ * @param opts.status      - The decision outcome (`"approved"` | `"denied"`)
+ * @param opts.decidedBy   - Actor that made the decision (e.g. `"policy"`)
+ * @param opts.decisionReason - Human-readable reason for the decision
+ * @param opts.requestSnapshot - Serialisable request object for the webhook payload
+ * @param opts.channels    - Optional notification channels from the policy decision
+ */
+async function handleAutoDecision(opts: {
+  requestId: string;
+  action: string;
+  status: "approved" | "denied";
+  decidedBy: string;
+  decidedByType: "policy" | "human" | "agent" | "system";
+  decisionReason: string | null;
+  requestSnapshot: Record<string, unknown>;
+  channels?: string[];
+}): Promise<void> {
+  const { requestId, action, status, decidedBy, decidedByType, decisionReason, requestSnapshot, channels } = opts;
+
+  // Step 1: Audit log
+  await logAuditEvent(requestId, status, decidedBy, {
+    reason: decisionReason,
+    automatic: true,
+  });
+
+  // Step 2: Webhook
+  await deliverWebhook(`request.${status}`, { request: requestSnapshot });
+
+  // Step 3: Event emit
+  const decidedEvent: RequestDecidedEvent = {
+    ...createBaseEvent(EventNames.REQUEST_DECIDED, "server"),
+    payload: {
+      requestId,
+      action,
+      status,
+      decidedBy,
+      decidedByType,
+      reason: decisionReason || undefined,
+      decisionTimeMs: 0,
+    },
+  };
+  getGlobalEmitter().emitSync(decidedEvent);
+
+  // Step 4: Dispatch to notification channels
+  getGlobalDispatcher().dispatchSync(decidedEvent, channels);
+}
+
 // Helper to convert DB row to response format
 function formatRequest(row: typeof approvalRequests.$inferSelect) {
   return {
@@ -240,79 +297,23 @@ requestsRouter.post("/", async (c) => {
     getGlobalDispatcher().dispatchSync(createdEvent, policyDecision.channels);
   }
 
-  // If auto-approved or auto-denied, log that event too and emit decided event
-  if (status === "approved") {
-    await logAuditEvent(id, "approved", "policy", {
-      reason: decisionReason,
-      automatic: true,
-    });
-    // Deliver webhook for auto-approval
-    await deliverWebhook("request.approved", {
-      request: {
-        id,
-        action,
-        params,
-        context,
-        status,
-        urgency,
+  // If auto-approved or auto-denied, run the 4-step auto-decision pipeline
+  if (status === "approved" || status === "denied") {
+    await handleAutoDecision({
+      requestId: id,
+      action,
+      status,
+      decidedBy: "policy",
+      decidedByType: "policy",
+      decisionReason,
+      requestSnapshot: {
+        id, action, params, context, status, urgency,
         createdAt: now.toISOString(),
         decidedAt: decidedAt?.toISOString() || null,
-        decidedBy,
-        decisionReason,
+        decidedBy, decisionReason,
       },
+      channels: policyDecision.channels,
     });
-
-    // Emit decided event for auto-approval
-    const decidedEvent: RequestDecidedEvent = {
-      ...createBaseEvent(EventNames.REQUEST_DECIDED, "server"),
-      payload: {
-        requestId: id,
-        action,
-        status: "approved",
-        decidedBy: "policy",
-        decidedByType: "policy",
-        reason: decisionReason || undefined,
-        decisionTimeMs: 0, // Instant decision
-      },
-    };
-    getGlobalEmitter().emitSync(decidedEvent);
-    getGlobalDispatcher().dispatchSync(decidedEvent, policyDecision.channels);
-  } else if (status === "denied") {
-    await logAuditEvent(id, "denied", "policy", {
-      reason: decisionReason,
-      automatic: true,
-    });
-    // Deliver webhook for auto-denial
-    await deliverWebhook("request.denied", {
-      request: {
-        id,
-        action,
-        params,
-        context,
-        status,
-        urgency,
-        createdAt: now.toISOString(),
-        decidedAt: decidedAt?.toISOString() || null,
-        decidedBy,
-        decisionReason,
-      },
-    });
-
-    // Emit decided event for auto-denial
-    const decidedEvent: RequestDecidedEvent = {
-      ...createBaseEvent(EventNames.REQUEST_DECIDED, "server"),
-      payload: {
-        requestId: id,
-        action,
-        status: "denied",
-        decidedBy: "policy",
-        decidedByType: "policy",
-        reason: decisionReason || undefined,
-        decisionTimeMs: 0, // Instant decision
-      },
-    };
-    getGlobalEmitter().emitSync(decidedEvent);
-    getGlobalDispatcher().dispatchSync(decidedEvent, policyDecision.channels);
   }
 
   const response = {
