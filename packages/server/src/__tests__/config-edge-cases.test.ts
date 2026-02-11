@@ -263,6 +263,7 @@ describe("config edge cases", () => {
         adminApiKey: "supersecretadminkey123",
         jwtSecret: "very-long-jwt-secret-that-is-32-chars!!",
         corsAllowedOrigins: "https://myapp.com,https://admin.myapp.com",
+        webhookEncryptionKey: "my-encryption-key",
       });
       const warnings = validateProductionConfig(config);
       expect(warnings).toHaveLength(0);

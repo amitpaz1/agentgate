@@ -145,6 +145,10 @@ export const ConfigSchema = z.object({
     })
     .pipe(z.array(ChannelRouteSchema)),
 
+  // Webhook Encryption
+  /** AES-256-GCM key for encrypting webhook secrets at rest */
+  webhookEncryptionKey: z.string().optional(),
+
   // Logging
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
   logFormat: z.enum(["json", "pretty"]).default("pretty"),
@@ -196,6 +200,7 @@ const ENV_MAP: Record<string, keyof z.infer<typeof ConfigSchema>> = {
   SMTP_FROM: "smtpFrom",
   DASHBOARD_URL: "dashboardUrl",
   CHANNEL_ROUTES: "channelRoutes",
+  WEBHOOK_ENCRYPTION_KEY: "webhookEncryptionKey",
   LOG_LEVEL: "logLevel",
   LOG_FORMAT: "logFormat",
 };
@@ -218,6 +223,7 @@ const SECRET_KEYS = [
   "SLACK_SIGNING_SECRET",
   "DISCORD_BOT_TOKEN",
   "SMTP_PASS",
+  "WEBHOOK_ENCRYPTION_KEY",
 ] as const;
 
 /**
@@ -313,6 +319,9 @@ export function validateProductionConfig(config: Config): string[] {
     }
     if (!config.corsAllowedOrigins) {
       warnings.push("CORS_ALLOWED_ORIGINS should be set in production");
+    }
+    if (!config.webhookEncryptionKey) {
+      warnings.push("WEBHOOK_ENCRYPTION_KEY should be set to encrypt webhook secrets at rest");
     }
   }
 

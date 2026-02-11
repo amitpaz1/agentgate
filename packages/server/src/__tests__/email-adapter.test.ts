@@ -739,3 +739,127 @@ describe("SMTP transport configuration", () => {
     expect(result.error).toContain("Connection refused");
   });
 });
+
+describe("HTML escaping (XSS prevention)", () => {
+  beforeEach(() => {
+    setConfig({ ...smtpConfig });
+  });
+
+  afterEach(() => {
+    resetConfig();
+  });
+
+  it("should escape XSS payloads in request.created action, requestId, and params", async () => {
+    const { buildRequestCreatedHtml } = await import("../lib/notification/adapters/email.js");
+
+    const xss = '<script>alert("xss")</script>';
+    const event: RequestCreatedEvent = {
+      type: EventNames.REQUEST_CREATED,
+      timestamp: Date.now(),
+      eventId: 'evt_<img onerror="alert(1)">',
+      source: "test",
+      payload: {
+        requestId: 'req_<b>bold</b>',
+        action: xss,
+        params: { key: '<img src=x onerror=alert(1)>' },
+        context: {},
+        urgency: "normal",
+      },
+    };
+
+    const links = {
+      approveUrl: "https://example.com/approve",
+      denyUrl: "https://example.com/deny",
+    };
+
+    const html = buildRequestCreatedHtml(event, links);
+
+    // Must NOT contain raw HTML tags (angle brackets unescaped)
+    expect(html).not.toContain("<script>");
+    expect(html).not.toContain("<img ");
+    expect(html).not.toContain("<b>");
+    // Must contain escaped versions
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).toContain("&lt;b&gt;bold&lt;/b&gt;");
+  });
+
+  it("should escape XSS payloads in request.decided action, reason, and decidedBy", async () => {
+    const { buildRequestDecidedHtml } = await import("../lib/notification/adapters/email.js");
+
+    const event: RequestDecidedEvent = {
+      type: EventNames.REQUEST_DECIDED,
+      timestamp: Date.now(),
+      eventId: "evt_1",
+      source: "test",
+      payload: {
+        requestId: "req_1",
+        action: '<img src=x onerror=alert("xss")>',
+        status: "denied",
+        decidedBy: '<script>steal()</script>',
+        decidedByType: "human",
+        decisionTimeMs: 100,
+        reason: '"><script>alert(document.cookie)</script>',
+      },
+    };
+
+    const html = buildRequestDecidedHtml(event);
+
+    expect(html).not.toContain("<script>");
+    expect(html).not.toContain("<img ");
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).toContain("&lt;img");
+  });
+
+  it("should escape XSS payloads in generic HTML template", async () => {
+    const { buildGenericHtml } = await import("../lib/notification/adapters/email.js");
+
+    const event = {
+      type: "request.expired" as const,
+      timestamp: Date.now(),
+      eventId: '<script>alert(1)</script>',
+      source: "test",
+      payload: {
+        requestId: '<b>xss</b>',
+        action: '"><img src=x onerror=alert(1)>',
+        urgency: '<script>alert(2)</script>',
+        params: { evil: '<script>alert(3)</script>' },
+      },
+    };
+
+    const html = buildGenericHtml(event as unknown as import("@agentgate/core").AgentGateEvent);
+
+    // Raw tags must be escaped — browser must not parse them as elements
+    expect(html).not.toContain("<script>alert");
+    expect(html).not.toContain("<img ");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("should escape formatJson output inside pre tags", async () => {
+    const { buildRequestCreatedHtml } = await import("../lib/notification/adapters/email.js");
+
+    const event: RequestCreatedEvent = {
+      type: EventNames.REQUEST_CREATED,
+      timestamp: Date.now(),
+      eventId: "evt_1",
+      source: "test",
+      payload: {
+        requestId: "req_1",
+        action: "test",
+        params: { html: '<div onclick="alert(1)">click</div>' },
+        context: {},
+        urgency: "normal",
+      },
+    };
+
+    const links = {
+      approveUrl: "https://example.com/approve",
+      denyUrl: "https://example.com/deny",
+    };
+
+    const html = buildRequestCreatedHtml(event, links);
+
+    // The JSON-formatted params should be escaped
+    expect(html).not.toContain('onclick="alert(1)"');
+    expect(html).toContain("&lt;div");
+  });
+});

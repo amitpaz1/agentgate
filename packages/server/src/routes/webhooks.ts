@@ -8,6 +8,8 @@ import { eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
 import { validateWebhookUrl } from '../lib/url-validator.js';
+import { encrypt, decrypt, deriveKey } from '../lib/crypto.js';
+import { getConfig } from '../config.js';
 
 const router = new Hono();
 
@@ -33,11 +35,17 @@ router.post('/', zValidator('json', createWebhookSchema), async (c) => {
   const id = nanoid();
   const webhookSecret = secret || crypto.randomBytes(32).toString('hex');
   
+  // Encrypt secret at rest if encryption key is configured
+  const config = getConfig();
+  const storedSecret = config.webhookEncryptionKey
+    ? encrypt(webhookSecret, deriveKey(config.webhookEncryptionKey))
+    : webhookSecret;
+  
   await getDb().insert(webhooks).values({
     id,
     url,
     events: JSON.stringify(events),
-    secret: webhookSecret,
+    secret: storedSecret,
     createdAt: Date.now(),
     enabled: 1,
   });
@@ -162,7 +170,11 @@ router.post('/:id/test', async (c) => {
   };
   
   const payloadStr = JSON.stringify(testPayload);
-  const signature = crypto.createHmac('sha256', webhookRecord.secret).update(payloadStr).digest('hex');
+  const config = getConfig();
+  const secret = config.webhookEncryptionKey
+    ? decrypt(webhookRecord.secret, deriveKey(config.webhookEncryptionKey))
+    : webhookRecord.secret;
+  const signature = crypto.createHmac('sha256', secret).update(payloadStr).digest('hex');
   
   try {
     const response = await fetch(webhookRecord.url, {

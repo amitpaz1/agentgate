@@ -5,8 +5,19 @@ import { eq, and, gt } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { validateWebhookUrl } from './url-validator.js';
 import { getLogger } from './logger.js';
+import { decrypt, encrypt, isEncrypted, deriveKey } from './crypto.js';
+import { getConfig } from '../config.js';
 
 const MAX_ATTEMPTS = 3;
+
+/** Decrypt a webhook secret if encryption is configured */
+function decryptSecret(storedSecret: string): string {
+  const config = getConfig();
+  if (config.webhookEncryptionKey) {
+    return decrypt(storedSecret, deriveKey(config.webhookEncryptionKey));
+  }
+  return storedSecret;
+}
 
 // Sign payload with HMAC-SHA256
 export function signPayload(payload: string, secret: string): string {
@@ -31,7 +42,7 @@ export async function deliverWebhook(event: string, data: unknown): Promise<void
 
 async function deliverToWebhook(webhook: typeof webhooks.$inferSelect, event: string, data: unknown) {
   const payload = JSON.stringify({ event, data, timestamp: Date.now() });
-  const signature = signPayload(payload, webhook.secret);
+  const signature = signPayload(payload, decryptSecret(webhook.secret));
   
   // Create delivery record
   const deliveryId = nanoid();
@@ -199,7 +210,7 @@ export function startRetryScanner(intervalMs = 30_000): NodeJS.Timeout {
           continue;
         }
 
-        const signature = signPayload(delivery.payload, webhook.secret);
+        const signature = signPayload(delivery.payload, decryptSecret(webhook.secret));
         const nextAttempt = delivery.attempts + 1;
 
         getLogger().info(
@@ -213,4 +224,31 @@ export function startRetryScanner(intervalMs = 30_000): NodeJS.Timeout {
       getLogger().error({ err }, 'Webhook retry scanner error');
     }
   }, intervalMs);
+}
+
+/**
+ * Encrypt any plaintext webhook secrets in the database.
+ * Called once at startup when WEBHOOK_ENCRYPTION_KEY is set.
+ */
+export async function encryptExistingSecrets(): Promise<number> {
+  const config = getConfig();
+  if (!config.webhookEncryptionKey) return 0;
+
+  const key = deriveKey(config.webhookEncryptionKey);
+  const allWebhooks = await getDb().select({ id: webhooks.id, secret: webhooks.secret }).from(webhooks);
+
+  let migrated = 0;
+  for (const wh of allWebhooks) {
+    if (!isEncrypted(wh.secret)) {
+      const encrypted = encrypt(wh.secret, key);
+      await getDb().update(webhooks).set({ secret: encrypted }).where(eq(webhooks.id, wh.id));
+      migrated++;
+    }
+  }
+
+  if (migrated > 0) {
+    getLogger().info({ count: migrated }, 'Encrypted existing plaintext webhook secrets');
+  }
+
+  return migrated;
 }

@@ -16,7 +16,7 @@ import { securityHeadersMiddleware } from "./middleware/security-headers.js";
 import { initDatabase, runMigrations, closeDatabase, getDb, approvalRequests } from "./db/index.js";
 import { resetRateLimiter } from "./lib/rate-limiter/index.js";
 import { initLogger, getLogger } from "./lib/logger.js";
-import { startRetryScanner } from "./lib/webhook.js";
+import { startRetryScanner, encryptExistingSecrets } from "./lib/webhook.js";
 import { startLastUsedFlusher, stopLastUsedFlusher } from "./lib/api-keys.js";
 import { sql } from "drizzle-orm";
 
@@ -149,6 +149,12 @@ async function main() {
 
   await runMigrations();
   getLogger().info("Database migrations applied.");
+
+  // Encrypt any existing plaintext webhook secrets
+  const migrated = await encryptExistingSecrets();
+  if (migrated > 0) {
+    getLogger().info({ count: migrated }, 'Migrated plaintext webhook secrets to encrypted.');
+  }
 
   getLogger().info(`Starting AgentGate server on port ${port}...`);
 

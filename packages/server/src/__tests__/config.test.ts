@@ -303,6 +303,7 @@ describe("config", () => {
         adminApiKey: "supersecretadminkey123",
         jwtSecret: "a-very-long-jwt-secret-at-least-32-chars",
         corsAllowedOrigins: "https://example.com",
+        webhookEncryptionKey: "my-encryption-key",
       });
 
       const warnings = validateProductionConfig(config);
@@ -462,6 +463,7 @@ describe("config", () => {
       process.env.WEBHOOK_TIMEOUT_MS = "10000";
       process.env.SLACK_BOT_TOKEN = "xoxb-prod-token";
       process.env.LOG_LEVEL = "warn";
+      process.env.WEBHOOK_ENCRYPTION_KEY = "prod-encryption-key";
       process.env.CHANNEL_ROUTES = JSON.stringify([
         { channel: "slack", target: "#prod-alerts", enabled: true },
         {
