@@ -185,7 +185,7 @@ export const api = {
   // Validate API key by making a test request
   async validateKey(): Promise<boolean> {
     try {
-      const response = await fetch(`${baseUrl}/api/health`, {
+      const response = await fetch(`${baseUrl}/health`, {
         headers: getHeaders(),
       });
       return response.ok;
