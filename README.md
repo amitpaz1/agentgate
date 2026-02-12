@@ -37,12 +37,12 @@ auto-deny dangerous ones, and route everything else to a human — via dashboard
 
 <table>
 <tr>
-<td align="center"><strong>Dashboard</strong><br><img src="docs/screenshots/dashboard.png" width="350" alt="Dashboard"></td>
-<td align="center"><strong>Approval Requests</strong><br><img src="docs/screenshots/requests.png" width="350" alt="Requests"></td>
+<td align="center"><strong>Dashboard</strong><br><img src="docs/screenshots/dashboard.png" width="350" alt="Dashboard"><br><sub>Overview of pending requests and recent activity, color-coded by urgency.</sub></td>
+<td align="center"><strong>Approval Requests</strong><br><img src="docs/screenshots/requests.png" width="350" alt="Requests"><br><sub>Filter and manage requests by status — approve, deny, or let policies decide.</sub></td>
 </tr>
 <tr>
-<td align="center"><strong>Audit Log</strong><br><img src="docs/screenshots/audit-log.png" width="350" alt="Audit Log"></td>
-<td align="center"><strong>Login</strong><br><img src="docs/screenshots/login.png" width="350" alt="Login"></td>
+<td align="center"><strong>Audit Log</strong><br><img src="docs/screenshots/audit-log.png" width="350" alt="Audit Log"><br><sub>Full audit trail with filters by event type, action, actor, and date range.</sub></td>
+<td align="center"><strong>Login</strong><br><img src="docs/screenshots/login.png" width="350" alt="Login"><br><sub>API key authentication — create keys via CLI or the admin API.</sub></td>
 </tr>
 </table>
 
