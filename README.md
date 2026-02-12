@@ -20,16 +20,6 @@
   <img src="docs/public/demo.gif" alt="AgentGate Demo" width="700">
 </p>
 
-### 📸 Screenshots
-
-| Dashboard | Pending Requests |
-|:-:|:-:|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Requests](docs/screenshots/requests.png) |
-
-| Audit Log | Login |
-|:-:|:-:|
-| ![Audit Log](docs/screenshots/audit-log.png) | ![Login](docs/screenshots/login.png) |
-
 Your AI agent wants to send an email, delete a file, or deploy to production.
 **Should it?** AgentGate lets you define policies that auto-approve safe actions,
 auto-deny dangerous ones, and route everything else to a human — via dashboard, Slack, Discord, or email.
@@ -44,6 +34,17 @@ auto-deny dangerous ones, and route everything else to a human — via dashboard
 - 🐳 **Docker-ready** — one `docker-compose up` for the full stack
 - 🔐 **Production-hardened** — SSRF protection, ReDoS defense, structured logging, graceful shutdown
 - ⚡ **Fast & lightweight** — Hono server, SQLite or PostgreSQL
+
+<table>
+<tr>
+<td align="center"><strong>Dashboard</strong><br><img src="docs/screenshots/dashboard.png" width="350" alt="Dashboard"></td>
+<td align="center"><strong>Approval Requests</strong><br><img src="docs/screenshots/requests.png" width="350" alt="Requests"></td>
+</tr>
+<tr>
+<td align="center"><strong>Audit Log</strong><br><img src="docs/screenshots/audit-log.png" width="350" alt="Audit Log"></td>
+<td align="center"><strong>Login</strong><br><img src="docs/screenshots/login.png" width="350" alt="Login"></td>
+</tr>
+</table>
 
 ---
 
