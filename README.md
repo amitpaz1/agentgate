@@ -20,6 +20,16 @@
   <img src="docs/public/demo.gif" alt="AgentGate Demo" width="700">
 </p>
 
+### 📸 Screenshots
+
+| Dashboard | Pending Requests |
+|:-:|:-:|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Requests](docs/screenshots/requests.png) |
+
+| Audit Log | Login |
+|:-:|:-:|
+| ![Audit Log](docs/screenshots/audit-log.png) | ![Login](docs/screenshots/login.png) |
+
 Your AI agent wants to send an email, delete a file, or deploy to production.
 **Should it?** AgentGate lets you define policies that auto-approve safe actions,
 auto-deny dangerous ones, and route everything else to a human — via dashboard, Slack, Discord, or email.
