@@ -46,7 +46,6 @@ CREATE TABLE IF NOT EXISTS \`policies\` (
 	\`created_at\` integer NOT NULL
 );
 
--- 0001_violet_captain_universe.sql
 CREATE TABLE IF NOT EXISTS \`api_keys\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`key_hash\` text NOT NULL,
@@ -58,7 +57,6 @@ CREATE TABLE IF NOT EXISTS \`api_keys\` (
 	\`rate_limit\` integer
 );
 
--- 0002_round_karma.sql
 CREATE TABLE IF NOT EXISTS \`webhook_deliveries\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`webhook_id\` text NOT NULL,
@@ -81,7 +79,6 @@ CREATE TABLE IF NOT EXISTS \`webhooks\` (
 	\`enabled\` integer DEFAULT 1 NOT NULL
 );
 
--- 0004_decision_tokens.sql
 CREATE TABLE IF NOT EXISTS \`decision_tokens\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`request_id\` text NOT NULL,
@@ -93,6 +90,18 @@ CREATE TABLE IF NOT EXISTS \`decision_tokens\` (
 	FOREIGN KEY (\`request_id\`) REFERENCES \`approval_requests\`(\`id\`) ON UPDATE no action ON DELETE no action
 );
 CREATE UNIQUE INDEX IF NOT EXISTS \`decision_tokens_token_unique\` ON \`decision_tokens\` (\`token\`);
+
+CREATE TABLE IF NOT EXISTS \`overrides\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`agent_id\` text NOT NULL,
+	\`tool_pattern\` text NOT NULL,
+	\`action\` text NOT NULL,
+	\`reason\` text,
+	\`created_at\` integer NOT NULL,
+	\`expires_at\` integer
+);
+CREATE INDEX IF NOT EXISTS \`idx_overrides_agent_id\` ON \`overrides\` (\`agent_id\`);
+CREATE INDEX IF NOT EXISTS \`idx_overrides_expires_at\` ON \`overrides\` (\`expires_at\`);
 `;
 
 export type TestDb = BetterSQLite3Database<typeof schema>;
@@ -109,10 +118,11 @@ export interface TestContext {
 export function createTestDb(): TestContext {
   const sqlite = new Database(":memory:");
   
-  // Run migrations
-  for (const statement of MIGRATIONS_SQL.split(";")) {
+  // Run migrations — strip SQL comments before splitting on semicolons
+  const stripped = MIGRATIONS_SQL.replace(/--[^\n]*/g, "");
+  for (const statement of stripped.split(";")) {
     const trimmed = statement.trim();
-    if (trimmed && !trimmed.startsWith("--")) {
+    if (trimmed) {
       sqlite.exec(trimmed);
     }
   }

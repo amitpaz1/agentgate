@@ -114,6 +114,22 @@ export const decisionTokens = pgTable("decision_tokens", {
   idxTokensRequestId: index("idx_tokens_request_id").on(table.requestId),
 }));
 
+// Overrides table — dynamic policy overrides (e.g. from AgentLens threshold alerts)
+export const overrides = pgTable("overrides", {
+  id: text("id").primaryKey(),
+  agentId: text("agent_id").notNull(),
+  toolPattern: text("tool_pattern").notNull(),
+  action: text("action", {
+    enum: ["require_approval"],
+  }).notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull(),
+  expiresAt: timestamp("expires_at", { mode: "date" }),
+}, (table) => ({
+  idxOverridesAgentId: index("idx_overrides_agent_id").on(table.agentId),
+  idxOverridesExpiresAt: index("idx_overrides_expires_at").on(table.expiresAt),
+}));
+
 // Type exports
 export type ApprovalRequest = typeof approvalRequests.$inferSelect;
 export type NewApprovalRequest = typeof approvalRequests.$inferInsert;
@@ -129,3 +145,5 @@ export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
 export type NewWebhookDelivery = typeof webhookDeliveries.$inferInsert;
 export type DecisionToken = typeof decisionTokens.$inferSelect;
 export type NewDecisionToken = typeof decisionTokens.$inferInsert;
+export type Override = typeof overrides.$inferSelect;
+export type NewOverride = typeof overrides.$inferInsert;

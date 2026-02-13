@@ -10,6 +10,8 @@ import webhooksRouter from "./routes/webhooks.js";
 import auditRouter from "./routes/audit.js";
 import tokensRouter from "./routes/tokens.js";
 import decideRouter from "./routes/decide.js";
+import overridesRouter from "./routes/overrides.js";
+import { startOverrideCleanup, stopOverrideCleanup } from "./routes/overrides.js";
 import { authMiddleware, type AuthVariables } from "./middleware/auth.js";
 import { getConfig, validateProductionConfig } from "./config.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
@@ -127,6 +129,7 @@ app.route("/api/policies", policiesRouter);
 app.route("/api/api-keys", apiKeysRouter);
 app.route("/api/webhooks", webhooksRouter);
 app.route("/api/audit", auditRouter);
+app.route("/api/overrides", overridesRouter);
 
 // Global error handler
 app.onError((err, c) => {
@@ -195,6 +198,10 @@ async function main() {
 
   // Start background cleanup job for expired tokens
   startCleanup();
+
+  // Start background cleanup for expired overrides
+  startOverrideCleanup();
+  getLogger().info('Override cleanup started (60s interval).');
   getLogger().info(`Cleanup job started (${config.cleanupIntervalMs}ms interval, ${config.cleanupRetentionDays}d retention).`);
 
   // --- Graceful shutdown ---
@@ -225,6 +232,9 @@ async function main() {
 
     stopCleanup();
     getLogger().info('Cleanup job stopped.');
+
+    stopOverrideCleanup();
+    getLogger().info('Override cleanup stopped.');
 
     try {
       await resetRateLimiter();

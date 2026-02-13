@@ -19,6 +19,7 @@ import { logAuditEvent } from "../lib/audit.js";
 import { deliverWebhook } from "../lib/webhook.js";
 import { getGlobalDispatcher } from "../lib/notification/index.js";
 import { getCachedPolicies } from "../lib/policy-cache.js";
+import { checkOverrides } from "./overrides.js";
 
 const requestsRouter = new Hono();
 
@@ -212,16 +213,27 @@ requestsRouter.post("/", async (c) => {
     expiresAt,
   };
 
+  // Check overrides BEFORE static policies
+  const agentId = typeof context.agentId === "string" ? context.agentId : undefined;
+  let overrideMatch: Awaited<ReturnType<typeof checkOverrides>> = null;
+  if (agentId) {
+    overrideMatch = await checkOverrides(agentId, action);
+  }
+
   // Run policy engine
   const policyDecision = evaluatePolicy(requestForEval, corePolicies);
 
-  // Determine initial status based on policy decision
+  // Determine initial status based on override or policy decision
   let status: "pending" | "approved" | "denied" = "pending";
   let decidedBy: string | null = null;
   let decidedAt: Date | null = null;
   let decisionReason: string | null = null;
 
-  if (policyDecision.decision === "auto_approve") {
+  if (overrideMatch) {
+    // Override forces require_approval → stays pending (route to human)
+    status = "pending";
+    decisionReason = `Override active: ${overrideMatch.reason || "dynamic override"}`;
+  } else if (policyDecision.decision === "auto_approve") {
     status = "approved";
     decidedBy = "policy";
     decidedAt = now;
