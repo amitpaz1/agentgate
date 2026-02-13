@@ -3,6 +3,10 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { bodyLimit } from "hono/body-limit";
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import requestsRouter from "./routes/requests.js";
 import policiesRouter from "./routes/policies.js";
 import apiKeysRouter from "./routes/api-keys.js";
@@ -148,8 +152,37 @@ app.onError((err, c) => {
   );
 });
 
-// 404 handler
+// ─── Dashboard static serving ────────────────────────────────────
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const dashboardDist = resolve(__dirname, '../../dashboard/dist');
+let dashboardIndexHtml: string | null = null;
+
+if (existsSync(resolve(dashboardDist, 'index.html'))) {
+  dashboardIndexHtml = readFileSync(resolve(dashboardDist, 'index.html'), 'utf-8');
+
+  // Serve static assets (JS, CSS, images)
+  app.use('/assets/*', serveStatic({ root: dashboardDist }));
+  app.use('/favicon.ico', serveStatic({ root: dashboardDist }));
+}
+
+// 404 handler — SPA fallback for dashboard routes, JSON 404 for API
 app.notFound((c) => {
+  // API routes always get JSON 404
+  if (c.req.path.startsWith('/api/')) {
+    return c.json(
+      {
+        error: "Not Found",
+        message: `Route ${c.req.method} ${c.req.path} not found`,
+      },
+      404
+    );
+  }
+
+  // SPA fallback: serve index.html for non-API routes
+  if (dashboardIndexHtml) {
+    return c.html(dashboardIndexHtml);
+  }
+
   return c.json(
     {
       error: "Not Found",
