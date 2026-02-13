@@ -1,5 +1,9 @@
 {
   "name": "agentgate",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentkitai/agentgate.git"
+  },
   "private": true,
   "type": "module",
   "scripts": {
